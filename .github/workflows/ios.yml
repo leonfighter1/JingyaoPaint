@@ -66,12 +66,12 @@ jobs:
           (cd build/ios/iphonesimulator && zip -qry "$OUT/JingyaoPaint-v$VERSION-ios-simulator.zip" Runner.app)
           ls -l "$OUT"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: ios-builds
           path: build/ios_out/
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: ios-screenshots
