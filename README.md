@@ -204,7 +204,12 @@ iOS builds need macOS and Xcode, so they run on GitHub's Macs (free for this pub
 2. Build an unsigned release build for iPhone and iPad with the newest stable Xcode, which targets the newest iOS.
 3. Start the app on the newest iPhone and iPad Pro simulators. A crash on launch fails the run.
 
-The screenshots and app logs are under the run's **Artifacts → ios-screenshots**.
+The screenshots and app logs are under the run's **Artifacts → ios-screenshots**. The builds are under **Artifacts → ios-builds**:
+
+- `JingyaoPaint-v<version>-ios-unsigned.ipa`: for iPhone and iPad. It is unsigned, so it has to be signed before it installs: with an Apple Developer account, or for personal use with a free Apple ID through a sideloading tool (the app then expires after 7 days).
+- `JingyaoPaint-v<version>-ios-simulator.zip`: for a Mac's Simulator, or a browser simulator such as Appetize, where you can try it from Windows.
+
+Artifacts are kept for 90 days and need a GitHub login to download.
 
 The iOS app needs iOS 15 or later. Its bundle ID `com.personal.jingyaopaint` matches the Android package. iOS-specific parts:
 

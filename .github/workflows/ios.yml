@@ -52,6 +52,25 @@ jobs:
       - name: Start on the iPhone and iPad simulators
         run: bash tool/ios_sim_smoke.sh build/ios/iphonesimulator/Runner.app build/ios_screens
 
+      # Downloadable builds (Actions → this run → Artifacts → ios-builds):
+      # an unsigned .ipa for devices (needs signing before it installs) and
+      # the simulator app as a zip (a Mac's Simulator, or a browser simulator
+      # such as Appetize).
+      - name: Package the builds
+        run: |
+          VERSION=$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' pubspec.yaml)
+          OUT="$PWD/build/ios_out"
+          mkdir -p "$OUT/Payload"
+          cp -R build/ios/iphoneos/Runner.app "$OUT/Payload/"
+          (cd "$OUT" && zip -qry "JingyaoPaint-v$VERSION-ios-unsigned.ipa" Payload && rm -rf Payload)
+          (cd build/ios/iphonesimulator && zip -qry "$OUT/JingyaoPaint-v$VERSION-ios-simulator.zip" Runner.app)
+          ls -l "$OUT"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ios-builds
+          path: build/ios_out/
+
       - uses: actions/upload-artifact@v5
         if: always()
         with:
