@@ -6,7 +6,8 @@
 - Mistakes: plist CRLF made regex edits miss (rule 34). Rule 35 added for native code that can't be compiled here.
 - Harness: PASS (analyze 0 issues, 191 tests, build web ok). Android/web icons unchanged after regenerating.
 - **Not verified:** nothing iOS has been compiled or run. The Swift code, Info.plist and the workflow get their first real check when this is pushed and the iOS workflow runs. Also untested: a real device, Apple Pencil pressure, AirPrint on iPad, "Open in" from Files/AirDrop.
-- Next: commit and push, then read the first workflow run (build log, simulator screenshots) and fix what it finds.
+- First workflow run (40227038101, commit 662a376): all steps green in 12 minutes (analyze, 191 tests, release build, simulator build, app running on the iPhone and iPad simulators). Fixed its only warning: actions/checkout and upload-artifact moved from v4 (Node 20, deprecated) to v5. Screenshots are in the run's artifacts; downloading needs a GitHub login, so they haven't been looked at here.
+- Next: look at the screenshots; for hands-on testing from Windows, a simulator build zip could go to a browser simulator (Appetize); signing and TestFlight once there's an Apple Developer account.
 
 ## 2026-10-25: v2.0.0 (box selection, copy/resize/turn, recolor/fade, background music, print preview)
 - Done: the move tool selects several strokes with a box; the selection can be copied, resized (corner knob or buttons), turned (top knob or buttons), recolored, faded and deleted, each as one undo step, with a bar that follows the selection. Strokes gained a saved `StrokeTransform`. Looping background music with two synthesized built-in tracks, uploads of common formats, volume, track choice, a ⋮ quick switch and pause in the background (`audioplayers`). Printing now goes through an in-app preview with a big close button. README gained a Versions table.
