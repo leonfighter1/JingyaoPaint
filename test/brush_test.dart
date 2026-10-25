@@ -326,7 +326,7 @@ void main() {
 
     test('moving text keeps everything but the position', () {
       final original = text(const TextContent(text: 'x', bold: true));
-      final moved = original.movedTo(const Offset(5, 6));
+      final moved = original.moved(const Offset(5, 6) - original.anchor);
       expect(moved.anchor, const Offset(5, 6));
       expect(moved.text!.toJson(), original.text!.toJson());
       expect(moved.color, original.color);

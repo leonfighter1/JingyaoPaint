@@ -24,6 +24,9 @@ class AppSettings extends ChangeNotifier {
         _stamp = StampShape.fromName(_prefs.getString(_kStamp)),
         _mirror = _prefs.getBool(_kMirror) ?? false,
         _paper = Color(_prefs.getInt(_kPaper) ?? 0xFFFFFFFF),
+        _musicOn = _prefs.getBool(_kMusicOn) ?? false,
+        _musicVolume = _prefs.getDouble(_kMusicVolume) ?? defaultMusicVolume,
+        _musicTrack = _prefs.getString(_kMusicTrack) ?? defaultMusicTrack,
         _customColors = [
           for (final v in _prefs.getStringList(_kCustomColors) ?? const [])
             if (int.tryParse(v) case final int argb) Color(argb),
@@ -37,6 +40,8 @@ class AppSettings extends ChangeNotifier {
   static const defaultFontId = 'kuaile';
   static const maxCustomColors = 8;
   static const minOpacity = 0.05;
+  static const defaultMusicVolume = 0.4;
+  static const defaultMusicTrack = 'builtin:sunny';
 
   static const _kLanguage = 'language';
   static const _kTheme = 'theme';
@@ -53,6 +58,9 @@ class AppSettings extends ChangeNotifier {
   static const _kPaper = 'paper';
   static const _kCustomColors = 'customColors';
   static const _kLastPainting = 'lastPaintingId';
+  static const _kMusicOn = 'musicOn';
+  static const _kMusicVolume = 'musicVolume';
+  static const _kMusicTrack = 'musicTrack';
   static String _kSize(BrushType b) => 'size.${b.name}';
   static String _kOpacity(BrushType b) => 'opacity.${b.name}';
 
@@ -204,6 +212,37 @@ class AppSettings extends ChangeNotifier {
   set paper(Color value) {
     _paper = value;
     _prefs.setInt(_kPaper, value.toARGB32());
+    notifyListeners();
+  }
+
+  bool _musicOn;
+  double _musicVolume;
+  String _musicTrack;
+
+  /// Whether background music plays while the app is open.
+  bool get musicOn => _musicOn;
+
+  /// Background music volume, 0 to 1.
+  double get musicVolume => _musicVolume;
+
+  /// The background music track's id (see MusicLibrary).
+  String get musicTrack => _musicTrack;
+
+  set musicOn(bool value) {
+    _musicOn = value;
+    _prefs.setBool(_kMusicOn, value);
+    notifyListeners();
+  }
+
+  set musicVolume(double value) {
+    _musicVolume = value.clamp(0.0, 1.0);
+    _prefs.setDouble(_kMusicVolume, _musicVolume);
+    notifyListeners();
+  }
+
+  set musicTrack(String id) {
+    _musicTrack = id;
+    _prefs.setString(_kMusicTrack, id);
     notifyListeners();
   }
 

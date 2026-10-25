@@ -104,6 +104,8 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
     widget.session.addListener(_onSessionChanged);
     _settings.addListener(_onSettingsChanged);
     _drawing.addListener(_onDrawingChanged);
+    selectionFrame.addListener(_scheduleBarAnchor);
+    view.addListener(_scheduleBarAnchor);
     _syncSelection();
   }
 
@@ -121,6 +123,9 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
     _settings.removeListener(_onSettingsChanged);
     _drawing.removeListener(_onDrawingChanged);
     selected.dispose();
+    selectionFrame.dispose();
+    selectionBox.dispose();
+    _barAnchor.dispose();
     _longPress?.cancel();
     _eraserCursor.dispose();
     _tools.dispose();
@@ -254,21 +259,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
       return;
     }
     if (_settings.brush == BrushType.move) {
-      // Touching a stroke selects it; touching the current selection keeps
-      // it (so a big stroke can be grabbed anywhere in its box); touching
-      // empty paper clears the selection.
-      final current = selected.value;
-      final hit =
-          _drawing.hitStroke(e.localPosition) ??
-          (current != null &&
-                  _drawing.strokes.contains(current) &&
-                  current.bounds.inflate(8).contains(e.localPosition)
-              ? current
-              : null);
-      selected.value = hit;
-      _moveGesture = hit == null
-          ? null
-          : (stroke: hit, down: e.localPosition, dragged: null);
+      _startMove(e.localPosition);
       return;
     }
     final mirrorX = _settings.mirror
@@ -322,7 +313,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
       return;
     }
     if (_settings.brush == BrushType.move) {
-      _dragSelected(e.localPosition);
+      _continueMove(e.localPosition);
       return;
     }
     if (_eraserCursor.value != null) _eraserCursor.value = e.localPosition;
@@ -347,33 +338,244 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
       return;
     }
     if (_settings.brush == BrushType.move) {
-      _moveGesture = null;
+      _endMove(cancelled: e is PointerCancelEvent);
       return;
     }
     _drawing.end();
   }
 
-  /// The move tool's current touch: the stroke being moved, where the finger
-  /// went down, and the moved copy while dragging.
-  ({Stroke stroke, Offset down, Stroke? dragged})? _moveGesture;
+  // --- Move tool: select, move, resize, turn ------------------------------
 
-  /// The stroke the move tool has selected, outlined on the paper.
-  final selected = ValueNotifier<Stroke?>(null);
+  /// The move tool's current touch.
+  _MoveGesture? _moveGesture;
 
-  void _dragSelected(Offset at) {
+  /// The strokes the move tool has selected, outlined on the paper.
+  final selected = ValueNotifier<List<Stroke>>(const []);
+
+  /// The dashed box around [selected], with its resize and turn handles.
+  final selectionFrame = ValueNotifier<SelectionFrame?>(null);
+
+  /// The box being dragged out over empty paper to select several strokes.
+  final selectionBox = ValueNotifier<Rect?>(null);
+
+  /// How close (in paper points) a touch must be to grab a handle.
+  static const handleReach = 30.0;
+
+  /// The brush the selection was last synced with.
+  BrushType? _syncedBrush;
+
+  void _select(List<Stroke> strokes, {SelectionFrame? frame}) {
+    selected.value = List.unmodifiable(strokes);
+    selectionFrame.value = frame ?? SelectionFrameHandles.around(strokes);
+  }
+
+  /// Where the selection is on screen (in the canvas stack's coordinates),
+  /// so the selection bar can sit next to it. Null while a finger is moving
+  /// the selection, which hides the bar.
+  final _barAnchor = ValueNotifier<Rect?>(null);
+  final _stackKey = GlobalKey();
+  final _paperBoxKey = GlobalKey();
+  bool _anchorScheduled = false;
+
+  /// Measured after the next layout, when the paper's place on screen is
+  /// known (never during build).
+  void _scheduleBarAnchor() {
+    if (_anchorScheduled) return;
+    _anchorScheduled = true;
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) {
+        _anchorScheduled = false;
+        if (mounted) _updateBarAnchor();
+      })
+      ..ensureVisualUpdate();
+  }
+
+  void _updateBarAnchor() {
+    final f = selectionFrame.value;
+    final paper = _paperBoxKey.currentContext?.findRenderObject();
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (f == null ||
+        _moveGesture != null ||
+        paper is! RenderBox ||
+        stack is! RenderBox) {
+      _barAnchor.value = null;
+      return;
+    }
+    // Through the zoom and the paper's fit-to-screen scaling.
+    final toStack = paper.getTransformTo(stack);
+    final corners = [
+      f.box.topLeft,
+      f.box.topRight,
+      f.box.bottomLeft,
+      f.box.bottomRight,
+      f.box.topCenter - const Offset(0, SelectionFrameHandles.rotateHandleGap),
+    ].map((p) => MatrixUtils.transformPoint(toStack, f.transform.apply(p)));
+    _barAnchor.value = corners
+        .map((p) => Rect.fromCenter(center: p, width: 36, height: 36))
+        .reduce((a, b) => a.expandToInclude(b));
+  }
+
+  /// Touching a handle resizes or turns the selection; touching a selected
+  /// stroke (or anywhere inside the selection's box) moves the selection;
+  /// touching another stroke selects and moves just that one; touching
+  /// empty paper starts a box that selects every stroke it catches.
+  void _startMove(Offset p) {
+    final sel = selected.value;
+    final frame = selectionFrame.value;
+    if (frame != null && sel.isNotEmpty) {
+      if ((p - frame.scaleHandle).distance <= handleReach) {
+        _moveGesture = _MoveGesture(_MoveMode.scale, sel, p, frame.box);
+        return;
+      }
+      if ((p - frame.rotateHandle).distance <= handleReach) {
+        _moveGesture = _MoveGesture(_MoveMode.rotate, sel, p, frame.box);
+        return;
+      }
+    }
+    final hit = _drawing.hitStroke(p);
+    if (hit != null && !sel.contains(hit)) {
+      _select([hit]);
+      _moveGesture =
+          _MoveGesture(_MoveMode.drag, [hit], p, selectionFrame.value!.box);
+      return;
+    }
+    if (frame != null && (hit != null || frame.box.contains(p))) {
+      _moveGesture = _MoveGesture(_MoveMode.drag, sel, p, frame.box);
+      return;
+    }
+    _select(const []);
+    _moveGesture = _MoveGesture(_MoveMode.box, const [], p, Rect.zero);
+    selectionBox.value = Rect.fromPoints(p, p);
+  }
+
+  void _continueMove(Offset p) {
     final g = _moveGesture;
     if (g == null) return;
-    final delta = at - g.down;
-    if (g.dragged == null && delta.distance < _dragSlop) return;
-    final moved = g.stroke.moved(delta);
+    final center = g.frame.center;
+    switch (g.mode) {
+      case _MoveMode.box:
+        selectionBox.value = Rect.fromPoints(g.down, p);
+      case _MoveMode.drag:
+        final delta = p - g.down;
+        if (g.current == null && delta.distance < _dragSlop) return;
+        _applyMove(g, [for (final s in g.originals) s.moved(delta)]);
+      case _MoveMode.scale:
+        final k = ((p - center).distance /
+                math.max(1, (g.down - center).distance))
+            .clamp(minSelectionScale, maxSelectionScale);
+        _applyMove(g, null, StrokeTransform.around(center, scale: k));
+      case _MoveMode.rotate:
+        final angle = (p - center).direction - (g.down - center).direction;
+        _applyMove(g, null, StrokeTransform.around(center, angle: angle));
+    }
+  }
+
+  static const minSelectionScale = 0.1;
+  static const maxSelectionScale = 10.0;
+
+  /// Puts the moved strokes on the paper. A resize or turn ([t]) also turns
+  /// the dashed box with them, so the handles stay under the finger.
+  void _applyMove(_MoveGesture g, List<Stroke>? moved, [StrokeTransform? t]) {
+    final next = moved ?? [for (final s in g.originals) s.transformed(t!)];
     // Only the first step records undo, so a whole drag undoes at once.
-    _drawing.replace(
-      g.dragged ?? g.stroke,
-      moved,
-      recordUndo: g.dragged == null,
+    _drawing.replaceAll(
+      g.current ?? g.originals,
+      next,
+      recordUndo: g.current == null,
     );
-    _moveGesture = (stroke: g.stroke, down: g.down, dragged: moved);
-    selected.value = moved;
+    g.current = next;
+    _select(next, frame: t == null ? null : (box: g.frame, transform: t));
+  }
+
+  void _endMove({required bool cancelled}) {
+    final g = _moveGesture;
+    _moveGesture = null;
+    if (g == null) return;
+    if (g.mode == _MoveMode.box) {
+      final box = selectionBox.value;
+      selectionBox.value = null;
+      // A tap on empty paper selects nothing.
+      if (!cancelled && box != null && box.longestSide >= _dragSlop) {
+        _select(_drawing.strokesIn(box));
+      }
+    } else if (g.current case final moved?) {
+      // Back to an upright box around the new shape.
+      _select(moved);
+    }
+    // The bar hid while the finger was down; bring it back.
+    _scheduleBarAnchor();
+  }
+
+  /// Resizes or turns the whole selection around its middle (from the
+  /// selection bar's buttons).
+  void _transformSelection({double scale = 1, double angle = 0}) {
+    final sel = selected.value;
+    final frame = selectionFrame.value;
+    if (sel.isEmpty || frame == null) return;
+    final t =
+        StrokeTransform.around(frame.box.center, scale: scale, angle: angle);
+    final next = [for (final s in sel) s.transformed(t)];
+    _drawing.replaceAll(sel, next);
+    _select(next);
+  }
+
+  /// Copies sit a little down and to the right, and become the selection.
+  void _duplicateSelection() {
+    final copies = [
+      for (final s in selected.value) s.moved(const Offset(24, 24)),
+    ];
+    _drawing.addAll(copies);
+    _select(copies);
+  }
+
+  void _deleteSelection() {
+    _drawing.removeAll(selected.value);
+    _select(const []);
+  }
+
+  /// Recolors the selection. Rainbow strokes keep their own colors.
+  void _recolorSelection(Color color) {
+    final sel = selected.value;
+    final next = [
+      for (final s in sel)
+        s.brush == BrushType.rainbow ? s : s.copyWith(color: color),
+    ];
+    _drawing.replaceAll(sel, next);
+    _select(next);
+  }
+
+  /// Sets the selection's opacity. Pass `recordUndo: false` while the
+  /// slider is still being dragged.
+  void _fadeSelection(double opacity, {required bool recordUndo}) {
+    final sel = selected.value;
+    final next = [for (final s in sel) s.copyWith(opacity: opacity)];
+    _drawing.replaceAll(sel, next, recordUndo: recordUndo);
+    _select(next);
+  }
+
+  Future<void> _showSelectionStyle() async {
+    final sel = selected.value;
+    if (sel.isEmpty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _SelectionStyleSheet(
+        palette: _palette,
+        customColors: _settings.customColors,
+        color: sel.first.color,
+        opacity: sel.first.opacity,
+        onColor: _recolorSelection,
+        onMoreColors: () async {
+          final picked = await _showColorPicker(sel.first.color);
+          if (picked == null) return null;
+          _settings.addCustomColor(picked);
+          _recolorSelection(picked);
+          return picked;
+        },
+        onOpacity: _fadeSelection,
+      ),
+    );
   }
 
   /// Rebuilds the floating controls (their corners and the brush they show)
@@ -386,17 +588,25 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
   /// Switching to the move tool selects the last thing drawn; switching
   /// away clears the selection.
   void _syncSelection() {
-    if (_settings.brush != BrushType.move) {
-      selected.value = null;
-    } else if (!_drawing.strokes.contains(selected.value)) {
-      selected.value = _drawing.strokes.lastOrNull;
+    final brush = _settings.brush;
+    if (brush != BrushType.move) {
+      if (selected.value.isNotEmpty) _select(const []);
+    } else if (_syncedBrush != BrushType.move) {
+      // Eraser strokes are invisible, so they're never selected.
+      final last = _drawing.strokes.reversed
+          .where((s) => s.brush != BrushType.eraser)
+          .firstOrNull;
+      _select([?last]);
     }
+    _syncedBrush = brush;
   }
 
-  /// Undo can remove the selected stroke; then nothing is selected.
+  /// Undo can remove selected strokes; the rest stay selected.
   void _onDrawingChanged() {
-    final s = selected.value;
-    if (s != null && !_drawing.strokes.contains(s)) selected.value = null;
+    if (_moveGesture != null) return;
+    final sel = selected.value;
+    final kept = [for (final s in sel) if (_drawing.strokes.contains(s)) s];
+    if (kept.length != sel.length) _select(kept);
   }
 
   /// The text tool's current touch: the text under the finger (if any),
@@ -412,7 +622,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
     if (hit == null) return;
     final delta = at - g.down;
     if (g.dragged == null && delta.distance < _dragSlop) return;
-    final moved = hit.movedTo(hit.anchor + delta);
+    final moved = hit.moved(delta);
     // Only the first step records undo, so a whole drag undoes at once.
     _drawing.replace(g.dragged ?? hit, moved, recordUndo: g.dragged == null);
     _textGesture = (hit: hit, down: g.down, dragged: moved);
@@ -464,6 +674,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
           content: result.content!,
           color: result.color!,
           opacity: item.opacity,
+          transform: item.transform,
         ),
       );
     }
@@ -483,17 +694,27 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
   }
 
   Future<void> _pickColor() async {
+    final picked = await _showColorPicker(_settings.color);
+    if (picked != null) {
+      _settings
+        ..color = picked
+        ..addCustomColor(picked);
+    }
+  }
+
+  /// The full color picker. Returns the chosen (opaque) color, or null.
+  Future<Color?> _showColorPicker(Color initial) async {
     final s = S.of(context);
-    var picked = _settings.color;
+    var picked = initial.withValues(alpha: 1);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(s.pickColor),
         content: SingleChildScrollView(
           child: ColorPicker(
-            pickerColor: _settings.color,
+            pickerColor: picked,
             onColorChanged: (c) => picked = c,
-            // Transparency has its own slider in the tool panel.
+            // Transparency has its own slider.
             enableAlpha: false,
             displayThumbColor: true,
           ),
@@ -510,11 +731,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
         ],
       ),
     );
-    if (ok == true) {
-      _settings
-        ..color = picked
-        ..addCustomColor(picked);
-    }
+    return ok == true ? picked : null;
   }
 
   Future<void> _pickPaper() async {
@@ -636,6 +853,18 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
             icon: Icons.wallpaper_rounded,
             label: s.paperColor,
             onSelected: _pickPaper,
+          ),
+        ],
+      ),
+      // A quick switch; volume and tracks are in Settings.
+      DropMenuSection(
+        title: s.menuSound,
+        items: [
+          DropMenuItem(
+            icon: Icons.music_note_rounded,
+            label: s.backgroundMusic,
+            checked: _settings.musicOn,
+            onSelected: () => _settings.musicOn = !_settings.musicOn,
           ),
         ],
       ),
@@ -793,6 +1022,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
             // The drawer opens from the side the tools button is on.
             final fromLeft = _settings.toolsCorner.isLeft;
             return Stack(
+              key: _stackKey,
               children: [
                 Positioned.fill(child: _buildPaper(s, cute)),
                 // Centered at the top, clear of every corner.
@@ -804,6 +1034,61 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
                     child: _ZoomChip(view: view, onReset: resetView),
                   ),
                 ),
+                // What the move tool can do with the selection, right next to
+                // it (and under the corner controls, which stay usable).
+                if (_settings.brush == BrushType.move)
+                  Positioned.fill(
+                    child: ValueListenableBuilder(
+                      valueListenable: _barAnchor,
+                      builder: (context, anchor, bar) => anchor == null
+                          ? const SizedBox.shrink()
+                          : CustomSingleChildLayout(
+                              delegate: _NextToSelection(anchor),
+                              child: bar,
+                            ),
+                      child: _SelectionBar(
+                        selected: selected,
+                        hide: slide,
+                        actions: [
+                          (
+                            Icons.copy_rounded,
+                            s.duplicate,
+                            _duplicateSelection,
+                          ),
+                          (
+                            Icons.open_in_full_rounded,
+                            s.makeBigger,
+                            () => _transformSelection(scale: 1.25),
+                          ),
+                          (
+                            Icons.close_fullscreen_rounded,
+                            s.makeSmaller,
+                            () => _transformSelection(scale: 0.8),
+                          ),
+                          (
+                            Icons.rotate_left_rounded,
+                            s.turnLeft,
+                            () => _transformSelection(angle: -math.pi / 12),
+                          ),
+                          (
+                            Icons.rotate_right_rounded,
+                            s.turnRight,
+                            () => _transformSelection(angle: math.pi / 12),
+                          ),
+                          (
+                            Icons.palette_rounded,
+                            s.colorAndOpacity,
+                            _showSelectionStyle,
+                          ),
+                          (
+                            Icons.delete_outline_rounded,
+                            s.deleteSelection,
+                            _deleteSelection,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 // Undo/redo and the tools button can each be dragged to any
                 // corner; they never share one.
                 CornerFloat(
@@ -887,6 +1172,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
   static const toolsFloatKey = Key('toolsFloat');
   static const undoFloatKey = Key('undoFloat');
   static const toolsListKey = Key('toolsList');
+  static const selectionBarKey = Key('selectionBar');
 
   /// The paper, like a sketchbook sheet, inside a zoomable view.
   ///
@@ -974,6 +1260,7 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
                       onPointerUp: _onUp,
                       onPointerCancel: _onUp,
                       child: RepaintBoundary(
+                        key: _paperBoxKey,
                         child: CustomPaint(
                           key: paperKey,
                           painter: _CanvasPainter(_drawing),
@@ -981,6 +1268,8 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
                             settings: _settings,
                             eraserCursor: _eraserCursor,
                             selected: selected,
+                            frame: selectionFrame,
+                            selectionBox: selectionBox,
                             accent: cute.spec.primary,
                             ink: cute.ink,
                           ),
@@ -1018,22 +1307,63 @@ class _CanvasPainter extends CustomPainter {
       oldDelegate.controller != controller;
 }
 
+/// The dashed box around the move tool's selection: [box], turned and
+/// resized by [transform] while a handle is dragged (upright otherwise).
+typedef SelectionFrame = ({Rect box, StrokeTransform transform});
+
+extension SelectionFrameHandles on SelectionFrame {
+  /// The upright frame around [strokes], or null when nothing is selected.
+  static SelectionFrame? around(List<Stroke> strokes) {
+    if (strokes.isEmpty) return null;
+    final bounds = strokes
+        .map((s) => s.bounds)
+        .reduce((a, b) => a.expandToInclude(b));
+    return (box: bounds.inflate(10), transform: _upright);
+  }
+
+  static const _upright = StrokeTransform(1, 0, 0, 1, 0, 0);
+
+  /// Drag this corner to make the selection bigger or smaller.
+  Offset get scaleHandle => transform.apply(box.bottomRight);
+
+  /// Drag this knob above the box to turn the selection.
+  Offset get rotateHandle =>
+      transform.apply(box.topCenter - const Offset(0, rotateHandleGap));
+
+  static const rotateHandleGap = 40.0;
+}
+
 /// Guides drawn over the paper that are not part of the picture: the dashed
-/// mirror axis and the eraser's range circle.
+/// mirror axis, the eraser's range circle and the move tool's selection.
 class CanvasOverlayPainter extends CustomPainter {
   CanvasOverlayPainter({
     required this.settings,
     required this.eraserCursor,
     required this.selected,
+    required this.frame,
+    required this.selectionBox,
     required this.accent,
     required this.ink,
-  }) : super(repaint: Listenable.merge([settings, eraserCursor, selected]));
+  }) : super(
+         repaint: Listenable.merge([
+           settings,
+           eraserCursor,
+           frame,
+           selectionBox,
+         ]),
+       );
 
   final AppSettings settings;
   final ValueListenable<Offset?> eraserCursor;
 
-  /// The move tool's selection, outlined with a dashed box.
-  final ValueListenable<Stroke?> selected;
+  /// The move tool's selection.
+  final ValueListenable<List<Stroke>> selected;
+
+  /// The dashed box drawn around [selected], with its handles.
+  final ValueListenable<SelectionFrame?> frame;
+
+  /// The box being dragged out to select several strokes.
+  final ValueListenable<Rect?> selectionBox;
   final Color accent;
   final Color ink;
 
@@ -1053,7 +1383,8 @@ class CanvasOverlayPainter extends CustomPainter {
         canvas.drawLine(Offset(mid, y), Offset(mid, y + 8), paint);
       }
     }
-    if (selected.value case final s?) _paintSelection(canvas, s.bounds);
+    if (frame.value case final f?) _paintSelection(canvas, f);
+    if (selectionBox.value case final box?) _paintSelectionBox(canvas, box);
     final at = eraserCursor.value;
     if (at == null || settings.brush != BrushType.eraser) return;
     final r = eraserRadius(settings);
@@ -1084,28 +1415,70 @@ class CanvasOverlayPainter extends CustomPainter {
   bool shouldRepaint(CanvasOverlayPainter old) =>
       old.accent != accent || old.ink != ink;
 
-  /// A dashed rounded box with corner dots around the selected stroke.
-  void _paintSelection(Canvas canvas, Rect bounds) {
-    final box = RRect.fromRectAndRadius(
-      bounds.inflate(10),
-      const Radius.circular(12),
-    );
-    canvas.drawRRect(box, Paint()..color = accent.withValues(alpha: 0.06));
+  /// A dashed rounded box around the selection, with corner dots, a resize
+  /// handle at the bottom right and a turn knob above.
+  void _paintSelection(Canvas canvas, SelectionFrame f) {
     final dash = Paint()
       ..color = accent
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
+    // The handles keep their size while the box is resized.
+    final scale = f.transform.scale;
+    canvas
+      ..save()
+      ..transform(f.transform.matrix4);
+    final box = RRect.fromRectAndRadius(f.box, const Radius.circular(12));
+    canvas.drawRRect(box, Paint()..color = accent.withValues(alpha: 0.06));
     for (final metric in (Path()..addRRect(box)).computeMetrics()) {
       for (var d = 0.0; d < metric.length; d += 12) {
-        canvas.drawPath(metric.extractPath(d, d + 7), dash);
+        canvas.drawPath(metric.extractPath(d, d + 7), dash..strokeWidth = 2 / scale);
       }
     }
-    final r = box.outerRect;
-    for (final c in [r.topLeft, r.topRight, r.bottomLeft, r.bottomRight]) {
+    final r = f.box;
+    final knob = r.topCenter - const Offset(0, SelectionFrameHandles.rotateHandleGap);
+    canvas.drawLine(r.topCenter, knob, dash..strokeWidth = 2 / scale);
+    for (final c in [r.topLeft, r.topRight, r.bottomLeft]) {
       canvas
-        ..drawCircle(c, 6, Paint()..color = Colors.white)
-        ..drawCircle(c, 4.5, Paint()..color = accent);
+        ..drawCircle(c, 6 / scale, Paint()..color = Colors.white)
+        ..drawCircle(c, 4.5 / scale, Paint()..color = accent);
     }
+    canvas.restore();
+    _paintHandle(canvas, f.scaleHandle, Icons.open_in_full_rounded);
+    _paintHandle(canvas, f.rotateHandle, Icons.rotate_right_rounded);
+  }
+
+  /// A round accent knob with a white icon on it.
+  void _paintHandle(Canvas canvas, Offset at, IconData icon) {
+    canvas
+      ..drawCircle(at, 17, Paint()..color = Colors.white)
+      ..drawCircle(at, 15, Paint()..color = accent);
+    final glyph = TextPainter(
+      text: TextSpan(
+        text: String.fromCharCode(icon.codePoint),
+        style: TextStyle(
+          fontFamily: icon.fontFamily,
+          package: icon.fontPackage,
+          fontSize: 18,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    glyph.paint(canvas, at - Offset(glyph.width / 2, glyph.height / 2));
+    glyph.dispose();
+  }
+
+  /// The see-through box dragged out over empty paper.
+  void _paintSelectionBox(Canvas canvas, Rect box) {
+    canvas
+      ..drawRect(box, Paint()..color = accent.withValues(alpha: 0.10))
+      ..drawRect(
+        box,
+        Paint()
+          ..color = accent
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5,
+      );
   }
 }
 
@@ -1960,4 +2333,268 @@ class _SizePreview extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _MoveMode { drag, scale, rotate, box }
+
+/// One touch of the move tool.
+class _MoveGesture {
+  _MoveGesture(this.mode, this.originals, this.down, this.frame);
+
+  final _MoveMode mode;
+
+  /// The strokes as they were when the finger went down.
+  final List<Stroke> originals;
+  final Offset down;
+
+  /// The selection's box when the finger went down; resizing and turning
+  /// happen around its middle.
+  final Rect frame;
+
+  /// The moved strokes now on the paper, after the first step.
+  List<Stroke>? current;
+}
+
+/// The move tool's buttons for the selected strokes: how many are selected,
+/// then copy, bigger, smaller, turn, color and delete.
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.selected,
+    required this.hide,
+    required this.actions,
+  });
+
+  final ValueListenable<List<Stroke>> selected;
+
+  /// Fades away while the tools drawer is open.
+  final Animation<double> hide;
+  final List<(IconData, String, VoidCallback)> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final cute = CuteTheme.of(context);
+    return ValueListenableBuilder(
+      valueListenable: selected,
+      builder: (context, sel, _) {
+        if (sel.isEmpty) return const SizedBox.shrink();
+        return AnimatedBuilder(
+          animation: hide,
+          builder: (context, child) => IgnorePointer(
+            ignoring: hide.value > 0,
+            child: Opacity(opacity: 1 - hide.value, child: child),
+          ),
+          child: Material(
+            key: CanvasPageState.selectionBarKey,
+            color: Theme.of(context).colorScheme.surface,
+            elevation: 6,
+            shadowColor: cute.spec.primary.withValues(alpha: 0.4),
+            shape: StadiumBorder(
+              side: BorderSide(
+                color: cute.spec.primary.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
+            ),
+            // Scrolls sideways on narrow phones instead of shrinking the
+            // buttons below their 48px tap size.
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      s.selectedCount(sel.length),
+                      style: TextStyle(
+                        color: cute.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  for (final (icon, label, onTap) in actions)
+                    IconButton(
+                      tooltip: label,
+                      icon: Icon(icon),
+                      color: cute.ink,
+                      onPressed: onTap,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A sheet that recolors the selection and sets how see-through it is.
+class _SelectionStyleSheet extends StatefulWidget {
+  const _SelectionStyleSheet({
+    required this.palette,
+    required this.customColors,
+    required this.color,
+    required this.opacity,
+    required this.onColor,
+    required this.onMoreColors,
+    required this.onOpacity,
+  });
+
+  final List<Color> palette;
+  final List<Color> customColors;
+  final Color color;
+  final double opacity;
+  final ValueChanged<Color> onColor;
+
+  /// Opens the full picker; returns the color used, or null.
+  final Future<Color?> Function() onMoreColors;
+  final void Function(double opacity, {required bool recordUndo}) onOpacity;
+
+  @override
+  State<_SelectionStyleSheet> createState() => _SelectionStyleSheetState();
+}
+
+class _SelectionStyleSheetState extends State<_SelectionStyleSheet> {
+  late Color _color = widget.color;
+  late double _opacity = widget.opacity;
+
+  /// One slider drag is one undo step.
+  bool _dragging = false;
+  bool _recorded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final cute = CuteTheme.of(context);
+    final accent = Theme.of(context).colorScheme.primary;
+    final colors = [
+      for (final c in widget.customColors)
+        if (!widget.palette.any((p) => p.toARGB32() == c.toARGB32())) c,
+      ...widget.palette,
+    ];
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              s.colorAndOpacity,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              children: [
+                _MoreColorsButton(
+                  tooltip: s.moreColors,
+                  onTap: () async {
+                    final c = await widget.onMoreColors();
+                    if (c != null && mounted) setState(() => _color = c);
+                  },
+                ),
+                for (final c in colors)
+                  _Swatch(
+                    color: c,
+                    label: s.colorLabel(c),
+                    selected: c.toARGB32() == _color.toARGB32(),
+                    onTap: () {
+                      setState(() => _color = c);
+                      widget.onColor(c);
+                    },
+                  ),
+              ],
+            ),
+            Row(
+              children: [
+                _SliderLabel(
+                  icon: Icons.opacity_rounded,
+                  tooltip: s.opacity,
+                  color: accent,
+                ),
+                Expanded(
+                  child: Slider(
+                    min: AppSettings.minOpacity,
+                    max: 1,
+                    divisions: 19,
+                    value: _opacity.clamp(AppSettings.minOpacity, 1),
+                    label: s.percent(_opacity),
+                    semanticFormatterCallback: (v) =>
+                        '${s.opacity} ${s.percent(v)}',
+                    activeColor: accent,
+                    onChangeStart: (_) {
+                      _dragging = true;
+                      _recorded = false;
+                    },
+                    onChanged: (v) {
+                      setState(() => _opacity = v);
+                      widget.onOpacity(v, recordUndo: !_recorded);
+                      if (_dragging) _recorded = true;
+                    },
+                    onChangeEnd: (_) => _dragging = false,
+                  ),
+                ),
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    s.percent(_opacity),
+                    style: TextStyle(color: cute.ink),
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              s.rainbowKeepsColors,
+              style: TextStyle(color: cute.ink, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Puts the selection bar just below the selection, or above it when there
+/// isn't room, keeping clear of the corner controls at the top and bottom.
+class _NextToSelection extends SingleChildLayoutDelegate {
+  _NextToSelection(this.anchor);
+
+  /// The selection (with its handles) on screen.
+  final Rect anchor;
+
+  /// Room left for the corner controls (undo, tools button).
+  static const reserve = 72.0;
+  static const gap = 8.0;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.loose(Size(
+        math.max(0, constraints.maxWidth - 32),
+        constraints.maxHeight,
+      ));
+
+  @override
+  Offset getPositionForChild(Size size, Size child) {
+    final x = (anchor.center.dx - child.width / 2)
+        .clamp(16.0, math.max(16.0, size.width - 16 - child.width))
+        .toDouble();
+    final below = anchor.bottom + gap;
+    final above = anchor.top - gap - child.height;
+    final double y;
+    if (below + child.height <= size.height - reserve) {
+      y = below;
+    } else if (above >= reserve) {
+      y = above;
+    } else {
+      // A selection as big as the screen: the top, below the corners.
+      y = math.min(reserve, math.max(0.0, size.height - child.height));
+    }
+    return Offset(x, y);
+  }
+
+  @override
+  bool shouldRelayout(_NextToSelection old) => old.anchor != anchor;
 }

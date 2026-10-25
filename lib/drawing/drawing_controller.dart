@@ -105,10 +105,35 @@ class DrawingController extends ChangeNotifier {
     _changed();
   }
 
-  void remove(Stroke stroke) {
-    if (!strokes.contains(stroke)) return;
+  /// Swaps each of [olds] for the replacement at the same index, as one
+  /// edit. See [replace] for `recordUndo`.
+  void replaceAll(List<Stroke> olds, List<Stroke> replacements,
+      {bool recordUndo = true}) {
+    assert(olds.length == replacements.length);
+    if (!olds.any(strokes.contains)) return;
+    if (recordUndo) _record();
+    for (final (i, old) in olds.indexed) {
+      final at = strokes.indexOf(old);
+      if (at >= 0) strokes[at] = replacements[i];
+    }
+    _changed();
+  }
+
+  /// Adds finished strokes on top, as one edit (for example copies).
+  void addAll(List<Stroke> added) {
+    if (added.isEmpty) return;
     _record();
-    strokes.remove(stroke);
+    strokes.addAll(added);
+    _changed();
+  }
+
+  void remove(Stroke stroke) => removeAll([stroke]);
+
+  /// Removes [removed] as one edit.
+  void removeAll(List<Stroke> removed) {
+    if (!removed.any(strokes.contains)) return;
+    _record();
+    strokes.removeWhere(removed.contains);
     _changed();
   }
 
@@ -121,10 +146,17 @@ class DrawingController extends ChangeNotifier {
     return null;
   }
 
+  /// Every visible stroke a selection box over [box] catches, in drawing
+  /// order.
+  List<Stroke> strokesIn(Rect box) => [
+        for (final s in strokes)
+          if (s.brush != BrushType.eraser && s.touches(box)) s,
+      ];
+
   /// The topmost text item under [point], if any.
   Stroke? hitText(Offset point) {
     for (final s in strokes.reversed) {
-      if (s.text != null && s.textBounds.contains(point)) return s;
+      if (s.text != null && s.hits(point)) return s;
     }
     return null;
   }

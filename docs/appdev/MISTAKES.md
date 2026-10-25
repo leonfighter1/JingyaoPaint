@@ -29,8 +29,41 @@
 26. If an emulator draws black, cold-boot it (`-no-snapshot-load`) before suspecting the app; launch from the launcher, not `am start` right after install.
 27. In widget tests, leave Settings with `find.byType(BackButton)`, not `pageBack()`, which needs the English tooltip.
 28. `num.clamp(lo, hi)` throws when `hi < lo`. When the upper bound is "space minus size", wrap it in `math.max(lo, …)`: on tiny screens with large text, a widget can be bigger than its area.
+29. Hit-test strokes against the segments between points, not just the points: a quick swipe records few points far apart.
+30. Floating controls must never cover handles the user has to grab. Anchor them next to what they act on, and test that the handle can still be dragged after the selection grows.
+31. When scripting the emulator, wait for snackbars to go before tapping bottom controls; a snackbar covers them and every tap misses.
+32. In Git Bash with `MSYS_NO_PATHCONV=1`, pass Windows paths (`C:/...`) to adb.exe for local files; `/c/...` is no longer translated.
+33. Wrap section titles and other single-line labels in a Row with `Flexible`, and run the 360×640 large-text test in English, whose words are longer.
 
 ## Log
+
+### 2026-10-25: A quick straight stroke couldn't be picked up in the middle
+- **Symptom:** in a widget test, tapping the middle of a fast straight line with the move tool selected nothing.
+- **Root cause:** `Stroke.hits` measured the distance to the recorded points only. A fast swipe records just its two ends, 80px apart.
+- **Fix:** distance to each segment; `touches` (box selection) walks each segment in 4px steps.
+- **Rule:** 29.
+
+### 2026-10-25: The selection bar covered the turn knob
+- **Symptom:** after resizing the selection 2×, dragging its turn knob did nothing in the test.
+- **Root cause:** the bar sat at a fixed spot near the top of the paper, over the knob, and took the touch.
+- **Fix:** the bar follows the selection (below it, or above when there's no room), measured after layout, and hides while a finger moves the selection.
+- **Rule:** 30.
+
+### 2026-10-25: Settings overflowed by 39px in English with large text
+- **Symptom:** "A RenderFlex overflowed by 39 pixels" in the 360×640, 1.3× text, English test.
+- **Root cause:** the new "Background music" section title was too wide for a plain Row.
+- **Fix:** `_SectionTitle` wraps its text in `Flexible`.
+- **Rule:** 33.
+
+### 2026-10-25: Emulator scripting slips
+- A snackbar ("已新建画作") covered the tools button, so a scripted brush pick missed and the strokes ran as move-tool boxes. Rule 31.
+- `adb install /c/AIProjects/...` failed with "No such file": `MSYS_NO_PATHCONV=1` stops Git Bash translating the path. Rule 32.
+
+### 2026-10-25: Print screen couldn't be left (user report)
+- **Symptom:** after choosing 打印, the user couldn't get back out.
+- **Root cause:** Android's print screen (`PrintActivity`) has no close or back button; with gesture navigation only an edge swipe or Back leaves it, which a child doesn't know. The app opened it directly.
+- **Fix:** an in-app print preview with a ✕, a big 关闭 button and a hint about Back, which opens the system screen only when 打印 is tapped. Back from the system screen returns to the preview.
+- **Rule:** none new; a general lesson: don't send a child straight into a system screen.
 
 ### 2026-10-25: Corner control crashed on a small phone with large text
 - **Symptom:** `ArgumentError: Invalid argument(s): 0.0` in the 360×640 English, 1.3× text test.

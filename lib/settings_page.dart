@@ -1,18 +1,25 @@
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
 import 'l10n.dart';
+import 'music/music_library.dart';
 import 'settings.dart';
 import 'theme/cute_font.dart';
 import 'theme/cute_theme.dart';
 import 'theme/theme_spec.dart';
 
-const appVersion = '1.6.0';
+const appVersion = '2.0.0';
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.settings, required this.themes});
+  const SettingsPage({
+    super.key,
+    required this.settings,
+    required this.themes,
+    required this.music,
+  });
 
   static const maxContentWidth = 760.0;
 
@@ -21,6 +28,7 @@ class SettingsPage extends StatelessWidget {
 
   final AppSettings settings;
   final List<ThemeSpec> themes;
+  final MusicLibrary music;
 
   static const _languageNames = {'zh': '简体中文', 'en': 'English'};
 
@@ -89,6 +97,9 @@ class SettingsPage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _SectionTitle(icon: Icons.music_note_rounded, text: s.backgroundMusic),
+          _MusicSettings(settings: settings, library: music),
           const SizedBox(height: 24),
           _SectionTitle(icon: Icons.info_outline_rounded, text: s.about),
           Card(
@@ -300,13 +311,165 @@ class _SectionTitle extends StatelessWidget {
         children: [
           Icon(icon, color: cute.spec.primary, size: 20),
           const SizedBox(width: 8),
-          Text(text,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w800)),
+          // Long titles wrap on small phones with large text.
+          Flexible(
+            child: Text(text,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w800)),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Background music: on/off, volume, which track, and adding new ones from
+/// the device.
+class _MusicSettings extends StatelessWidget {
+  const _MusicSettings({required this.settings, required this.library});
+
+  final AppSettings settings;
+  final MusicLibrary library;
+
+  /// Picks an audio file, saves it in the app and plays it.
+  Future<void> _upload(BuildContext context) async {
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final file = await openFile(acceptedTypeGroups: [
+      XTypeGroup(
+        label: s.backgroundMusic,
+        extensions: MusicLibrary.extensions,
+        mimeTypes: const ['audio/*'],
+        uniformTypeIdentifiers: const ['public.audio'],
+        webWildCards: const ['audio/*'],
+      ),
+    ]);
+    if (file == null) return;
+    final track = await library.add(file.name, await file.readAsBytes());
+    if (track == null) {
+      messenger.showSnackBar(SnackBar(content: Text(s.musicAddFailed)));
+      return;
+    }
+    settings
+      ..musicTrack = track.id
+      ..musicOn = true;
+    messenger.showSnackBar(SnackBar(content: Text(s.musicAdded(track.name))));
+  }
+
+  Future<void> _confirmRemove(BuildContext context, MusicTrack track) async {
+    final s = S.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s.deleteMusicTitle(track.name)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(s.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    if (settings.musicTrack == track.id) {
+      settings.musicTrack = MusicLibrary.builtIn.first.id;
+    }
+    await library.remove(track);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final cute = CuteTheme.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge([settings, library]),
+      builder: (context, _) {
+        final current = library.trackById(settings.musicTrack).id;
+        return Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                secondary:
+                    Icon(Icons.music_note_rounded, color: cute.spec.primary),
+                title: Text(s.playMusic),
+                subtitle: Text(s.playMusicHint),
+                value: settings.musicOn,
+                onChanged: (v) => settings.musicOn = v,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    Tooltip(
+                      message: s.musicVolume,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(Icons.volume_up_rounded,
+                            color: cute.spec.primary),
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: settings.musicVolume,
+                        divisions: 20,
+                        label: s.percent(settings.musicVolume),
+                        semanticFormatterCallback: (v) =>
+                            '${s.musicVolume} ${s.percent(v)}',
+                        onChanged: (v) => settings.musicVolume = v,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 48,
+                      child: Text(s.percent(settings.musicVolume)),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              for (final track in library.tracks)
+                ListTile(
+                  leading: Icon(
+                    track.id == current
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: cute.spec.primary,
+                  ),
+                  title: Text(
+                    track.builtIn ? s.trackName(track.name) : track.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(track.builtIn ? s.builtInMusic : s.myMusic),
+                  selected: track.id == current,
+                  // Picking a track means wanting to hear it.
+                  onTap: () => settings
+                    ..musicTrack = track.id
+                    ..musicOn = true,
+                  trailing: track.builtIn
+                      ? null
+                      : IconButton(
+                          tooltip: s.delete,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          onPressed: () => _confirmRemove(context, track),
+                        ),
+                ),
+              ListTile(
+                leading:
+                    Icon(Icons.upload_file_rounded, color: cute.spec.primary),
+                title: Text(s.uploadMusic),
+                subtitle: Text(s.musicFormats),
+                onTap: () => _upload(context),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:jingyao_paint/drawing/stroke.dart';
 import 'package:jingyao_paint/gallery/painting_store.dart';
+import 'package:jingyao_paint/music/background_music.dart';
+import 'package:jingyao_paint/music/music_library.dart';
 import 'package:jingyao_paint/painting_session.dart';
 import 'package:jingyao_paint/settings.dart';
 import 'package:perfect_freehand/perfect_freehand.dart';
@@ -25,6 +27,11 @@ class TestApp {
   final AppSettings settings;
   final MemoryStoreBackend backend;
   final PaintingSession session;
+  final musicFiles = MemoryMusicFiles();
+  late final music = MusicLibrary(musicFiles);
+  final engine = FakeMusicEngine();
+  late final player =
+      BackgroundMusic(settings: settings, library: music, engine: engine);
 
   PaintingStore get store => session.store;
 }
@@ -75,4 +82,40 @@ class FailingBackend extends MemoryStoreBackend {
   @override
   Future<void> writeText(String name, String value) async =>
       throw Exception('disk full');
+}
+
+/// Records what the background music was told to do, instead of playing.
+class FakeMusicEngine implements MusicEngine {
+  final List<String> calls = [];
+  MusicSource? source;
+  double volume = 0;
+
+  /// Makes the next [play] fail, like an unplayable file.
+  bool failNext = false;
+
+  @override
+  Future<void> play(MusicSource source, double volume) async {
+    if (failNext) {
+      failNext = false;
+      throw Exception('cannot play');
+    }
+    this.source = source;
+    this.volume = volume;
+    calls.add('play');
+  }
+
+  @override
+  Future<void> pause() async => calls.add('pause');
+
+  @override
+  Future<void> resume() async => calls.add('resume');
+
+  @override
+  Future<void> setVolume(double volume) async {
+    this.volume = volume;
+    calls.add('volume');
+  }
+
+  @override
+  Future<void> dispose() async {}
 }

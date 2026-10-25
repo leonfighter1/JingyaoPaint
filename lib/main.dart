@@ -9,6 +9,9 @@ import 'gallery/gallery_page.dart';
 import 'gallery/painting_store.dart';
 import 'gallery/store_backend.dart';
 import 'l10n.dart';
+import 'music/background_music.dart';
+import 'music/music_files.dart';
+import 'music/music_library.dart';
 import 'painting_session.dart';
 import 'settings.dart';
 import 'settings_page.dart';
@@ -27,7 +30,20 @@ Future<void> main() async {
     settings: settings,
   );
   await session.restoreLast();
-  runApp(PaintApp(settings: settings, session: session, themes: themes));
+  final music = MusicLibrary(createMusicFiles());
+  await music.load();
+  final player = BackgroundMusic(
+    settings: settings,
+    library: music,
+    engine: AudioPlayersEngine(),
+  )..start();
+  runApp(PaintApp(
+    settings: settings,
+    session: session,
+    themes: themes,
+    music: music,
+    player: player,
+  ));
 }
 
 /// Lists the bundled fonts' licenses on Flutter's licenses page, as the
@@ -49,11 +65,17 @@ class PaintApp extends StatelessWidget {
     required this.settings,
     required this.session,
     required this.themes,
+    required this.music,
+    this.player,
   });
 
   final AppSettings settings;
   final PaintingSession session;
   final List<ThemeSpec> themes;
+  final MusicLibrary music;
+
+  /// Plays the background music; null in tests that don't need it.
+  final BackgroundMusic? player;
 
   /// Built themes, one per theme and font combination actually used.
   final Map<(String, String), ThemeData> _cache = {};
@@ -81,7 +103,13 @@ class PaintApp extends StatelessWidget {
           for (final code in AppSettings.supportedLanguages) Locale(code),
         ],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
-        home: HomeShell(settings: settings, session: session, themes: themes),
+        home: HomeShell(
+          settings: settings,
+          session: session,
+          themes: themes,
+          music: music,
+          player: player,
+        ),
       ),
     );
   }
@@ -94,11 +122,15 @@ class HomeShell extends StatefulWidget {
     required this.settings,
     required this.session,
     required this.themes,
+    required this.music,
+    this.player,
   });
 
   final AppSettings settings;
   final PaintingSession session;
   final List<ThemeSpec> themes;
+  final MusicLibrary music;
+  final BackgroundMusic? player;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -112,6 +144,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.session.onSaveError = _showSaveError;
+    widget.player?.onError = _showMusicError;
     // After the first frame, so the snackbar and translations are ready.
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => IncomingFiles.listen(_openIncoming));
@@ -128,6 +161,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.session.onSaveError = null;
+    widget.player?.onError = null;
     super.dispose();
   }
 
@@ -136,6 +170,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) widget.session.save();
+  }
+
+  void _showMusicError(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(S.of(context).musicPlayFailed)));
   }
 
   void _showSaveError(Object error) {
@@ -151,7 +191,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     widget.session.save();
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) =>
-          SettingsPage(settings: widget.settings, themes: widget.themes),
+          SettingsPage(
+        settings: widget.settings,
+        themes: widget.themes,
+        music: widget.music,
+      ),
     ));
   }
 

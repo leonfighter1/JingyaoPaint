@@ -69,8 +69,24 @@ class S {
         StampShape.flower => _t('小花', 'Flower'),
       };
   // Move tool and eraser hints
-  String get moveHint => _t('点一下画里的某一笔就能选中它，拖动即可移动。刚切换过来时会自动选中上一笔。',
-      'Tap a stroke to select it, then drag to move it. Switching here selects your last stroke.');
+  String get moveHint => _t(
+      '点一下某一笔选中它；在空白处拖出方框，可以一次选中好几笔。拖动移动，'
+          '拖右下角的圆钮放大缩小，拖上方的圆钮旋转。上方的按钮还能复制、改颜色和透明度。',
+      'Tap a stroke to select it, or drag a box over empty paper to select '
+          'several. Drag to move, drag the bottom-right knob to resize and the '
+          'top knob to turn. The bar at the top copies, recolors and fades them.');
+
+  // Move tool selection
+  String selectedCount(int n) => _t('已选 $n 个', '$n selected');
+  String get duplicate => _t('复制', 'Copy');
+  String get makeBigger => _t('放大', 'Bigger');
+  String get makeSmaller => _t('缩小', 'Smaller');
+  String get turnLeft => _t('向左转', 'Turn left');
+  String get turnRight => _t('向右转', 'Turn right');
+  String get colorAndOpacity => _t('颜色和透明度', 'Color and opacity');
+  String get deleteSelection => _t('删除选中的', 'Delete selected');
+  String get rainbowKeepsColors =>
+      _t('彩虹笔画的线会保留彩虹色，只改透明度。', 'Rainbow strokes keep their colors; only their opacity changes.');
   String get eraserHint => _t('橡皮擦是圆头的，长按画布可以看到擦除范围。',
       'The eraser has a round tip. Long-press the paper to see its size.');
 
@@ -142,6 +158,42 @@ class S {
   String get menuView => _t('视图', 'View');
   String get menuPaper => _t('画纸', 'Paper');
   String get menuPainting => _t('画作', 'Painting');
+  String get menuSound => _t('声音', 'Sound');
+
+  // Background music
+  String get backgroundMusic => _t('背景音乐', 'Background music');
+  String get playMusic => _t('播放背景音乐', 'Play background music');
+  String get playMusicHint =>
+      _t('画画时循环播放，切到后台会自动暂停', 'Loops while you draw; pauses when the app is in the background');
+  String get musicVolume => _t('音量', 'Volume');
+  String get musicTrack => _t('选择音乐', 'Music');
+  String get uploadMusic => _t('上传本地音乐', 'Add music from this device');
+  String get musicFormats => _t(
+      '支持 MP3、M4A/AAC、WAV、OGG/Opus、FLAC、MIDI 等常见格式',
+      'MP3, M4A/AAC, WAV, OGG/Opus, FLAC, MIDI and other common formats');
+  String get builtInMusic => _t('自带', 'Built-in');
+  String get myMusic => _t('我上传的', 'Added by me');
+  String trackName(String id) => switch (id) {
+        'sunny' => _t('阳光散步', 'Sunny Walk'),
+        'twinkle' => _t('小星星摇篮曲', 'Twinkle Lullaby'),
+        _ => id,
+      };
+  String musicAdded(String name) => _t('已添加“$name”', 'Added "$name"');
+  String get musicAddFailed =>
+      _t('这个文件放不了，换一首试试', "That file can't be played. Try another one");
+  String deleteMusicTitle(String name) => _t('删除“$name”？', 'Delete "$name"?');
+  String get musicPlayFailed => _t('背景音乐播放失败，已换回自带音乐',
+      "Couldn't play the music. Switched back to a built-in track");
+
+  // Print preview
+  String get printPreview => _t('打印预览', 'Print preview');
+  String get closePrint => _t('关闭', 'Close');
+  String get printNow => _t('打印', 'Print');
+  String get printHint => _t(
+      '点“打印”会打开手机的打印界面。想回来时，按返回键，或从屏幕左边缘向右滑一下。',
+      'Print opens the phone\'s print screen. To come back, press Back or '
+          'swipe in from the left edge of the screen.');
+  String get printSent => _t('已交给打印机', 'Sent to the printer');
 
   // Tools drawer
   String get toolsButton => _t('画笔 · 颜色', 'Brushes · Colors');

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -260,6 +261,97 @@ class TextContent {
       );
 }
 
+/// A 2D move, turn and resize applied to a finished stroke when it's
+/// painted: `x' = a·x + c·y + tx`, `y' = b·x + d·y + ty`.
+///
+/// Transforming the canvas (instead of the stroke's points) keeps every
+/// brush exact: filled shapes stay crisp, spray and stamps keep their look,
+/// and a mirrored pair turns as one piece.
+@immutable
+class StrokeTransform {
+  const StrokeTransform(this.a, this.b, this.c, this.d, this.tx, this.ty);
+
+  /// Scales by [scale] and turns by [angle] (radians, clockwise on screen)
+  /// around [center].
+  factory StrokeTransform.around(Offset center,
+      {double scale = 1, double angle = 0}) {
+    final a = scale * math.cos(angle), b = scale * math.sin(angle);
+    return StrokeTransform(a, b, -b, a, center.dx - a * center.dx + b * center.dy,
+        center.dy - b * center.dx - a * center.dy);
+  }
+
+  factory StrokeTransform.translation(Offset delta) =>
+      StrokeTransform(1, 0, 0, 1, delta.dx, delta.dy);
+
+  final double a, b, c, d, tx, ty;
+
+  /// How much bigger than the original it is drawn.
+  double get scale => math.sqrt(a * a + b * b);
+
+  /// How far it is turned, in radians.
+  double get angle => math.atan2(b, a);
+
+  Offset apply(Offset p) =>
+      Offset(a * p.dx + c * p.dy + tx, b * p.dx + d * p.dy + ty);
+
+  /// This transform followed by [next].
+  StrokeTransform then(StrokeTransform next) => StrokeTransform(
+        next.a * a + next.c * b,
+        next.b * a + next.d * b,
+        next.a * c + next.c * d,
+        next.b * c + next.d * d,
+        next.a * tx + next.c * ty + next.tx,
+        next.b * tx + next.d * ty + next.ty,
+      );
+
+  StrokeTransform get inverse {
+    final det = a * d - b * c;
+    final ia = d / det, ib = -b / det, ic = -c / det, id = a / det;
+    return StrokeTransform(
+        ia, ib, ic, id, -(ia * tx + ic * ty), -(ib * tx + id * ty));
+  }
+
+  /// The upright box around [r] once transformed.
+  Rect applyRect(Rect r) {
+    final corners = [r.topLeft, r.topRight, r.bottomLeft, r.bottomRight]
+        .map(apply)
+        .toList();
+    var out = Rect.fromPoints(corners[0], corners[0]);
+    for (final p in corners.skip(1)) {
+      out = out.expandToInclude(Rect.fromPoints(p, p));
+    }
+    return out;
+  }
+
+  /// Column-major 4x4 matrix for [Canvas.transform].
+  Float64List get matrix4 => Float64List.fromList(
+      [a, b, 0, 0, c, d, 0, 0, 0, 0, 1, 0, tx, ty, 0, 1]);
+
+  List<double> toJson() => [
+        for (final v in [a, b, c, d]) (v * 10000).round() / 10000,
+        for (final v in [tx, ty]) (v * 10).round() / 10,
+      ];
+
+  static StrokeTransform? fromJson(Object? json) {
+    if (json is! List || json.length != 6) return null;
+    final v = [for (final n in json.cast<num>()) n.toDouble()];
+    return StrokeTransform(v[0], v[1], v[2], v[3], v[4], v[5]);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is StrokeTransform &&
+      other.a == a &&
+      other.b == b &&
+      other.c == c &&
+      other.d == d &&
+      other.tx == tx &&
+      other.ty == ty;
+
+  @override
+  int get hashCode => Object.hash(a, b, c, d, tx, ty);
+}
+
 /// One continuous stroke made with a single brush.
 class Stroke {
   Stroke({
@@ -274,6 +366,7 @@ class Stroke {
     this.shape,
     this.fill = false,
     this.text,
+    this.transform,
     List<PointVector>? points,
     this.isComplete = false,
   })  : seed = seed ?? math.Random().nextInt(1 << 30),
@@ -286,6 +379,7 @@ class Stroke {
     required TextContent content,
     required Color color,
     double opacity = 1,
+    StrokeTransform? transform,
   }) =>
       Stroke(
         brush: BrushType.text,
@@ -295,20 +389,24 @@ class Stroke {
         usesRealPressure: false,
         seed: 0,
         text: content,
+        transform: transform,
         isComplete: true,
         points: [PointVector(anchor.dx, anchor.dy, 0.5)],
       );
-
-  /// The same text moved so its anchor is at [anchor].
-  Stroke movedTo(Offset anchor) => Stroke.text(
-      anchor: anchor, content: text!, color: color, opacity: opacity);
 
   /// A copy of any stroke shifted by [delta]. Strokes are never changed in
   /// place (undo snapshots rely on that), so moving makes a new one. The
   /// seed is kept so spray and stamps look identical after the move, and a
   /// mirrored stroke's axis moves with it so the pair stays together.
   Stroke moved(Offset delta) {
-    if (text != null) return movedTo(anchor + delta);
+    // A turned or resized stroke moves by adding to its transform.
+    if (transform != null) {
+      return transformed(StrokeTransform.translation(delta));
+    }
+    if (text != null) {
+      return Stroke.text(
+          anchor: anchor + delta, content: text!, color: color, opacity: opacity);
+    }
     final mirror = mirrorX == null ? null : mirrorX! + delta.dx;
     if (shape != null) {
       return Stroke.shape(
@@ -343,20 +441,115 @@ class Stroke {
     );
   }
 
+  /// A copy turned and/or resized by [t], on top of any earlier transform.
+  Stroke transformed(StrokeTransform t) =>
+      copyWith(transform: () => (transform ?? _identity).then(t));
+
+  static const _identity = StrokeTransform(1, 0, 0, 1, 0, 0);
+
+  /// A copy with a new color, opacity or transform. Everything else,
+  /// including the seed, stays the same.
+  Stroke copyWith({
+    Color? color,
+    double? opacity,
+    StrokeTransform? Function()? transform,
+  }) {
+    final c = color ?? this.color;
+    final o = opacity ?? this.opacity;
+    final t = transform == null ? this.transform : transform();
+    if (text != null) {
+      return Stroke.text(
+          anchor: anchor, content: text!, color: c, opacity: o, transform: t);
+    }
+    if (shape != null) {
+      return Stroke.shape(
+        shape: shape!,
+        from: _from!,
+        to: _to!,
+        brush: brush,
+        color: c,
+        size: size,
+        opacity: o,
+        fill: fill,
+        seed: seed,
+        stamp: stamp,
+        mirrorX: mirrorX,
+        transform: t,
+        isComplete: true,
+      );
+    }
+    return Stroke(
+      brush: brush,
+      color: c,
+      size: size,
+      opacity: o,
+      usesRealPressure: usesRealPressure,
+      seed: seed,
+      stamp: stamp,
+      mirrorX: mirrorX,
+      transform: t,
+      isComplete: true,
+      points: List.of(points),
+    );
+  }
+
   /// Whether [p] is on this stroke: inside text or a filled shape, or within
   /// finger reach of its line (or of its mirror image).
   bool hits(Offset p, {double reach = 14}) {
+    if (transform case final t?) {
+      // Test in the stroke's own coordinates.
+      p = t.inverse.apply(p);
+      reach /= t.scale;
+    }
     if (text != null) return textBounds.contains(p);
-    if (!bounds.inflate(reach).contains(p)) return false;
+    if (!_localBounds.inflate(reach).contains(p)) return false;
     final candidates = [p, if (mirrorX case final m?) Offset(2 * m - p.dx, p.dy)];
     final tolerance = width / 2 + reach;
     for (final q in candidates) {
       if (fill && shape != null && _shapePath.contains(q)) return true;
-      for (final pt in points) {
-        if ((pt - q).distance <= tolerance) return true;
+      // The line between points counts too: a quick swipe records few
+      // points far apart.
+      for (var i = 0; i < points.length; i++) {
+        final a = points[i] as Offset;
+        final b = i + 1 < points.length ? points[i + 1] as Offset : a;
+        if (_distanceToSegment(q, a, b) <= tolerance) return true;
       }
     }
     return false;
+  }
+
+  static double _distanceToSegment(Offset p, Offset a, Offset b) {
+    final ab = b - a;
+    final len2 = ab.distanceSquared;
+    if (len2 == 0) return (p - a).distance;
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0);
+    return (p - (a + ab * t)).distance;
+  }
+
+  /// Whether a selection box drawn over the paper catches this stroke:
+  /// some of its line (or its mirror image) is inside [box], or [box]
+  /// overlaps its text.
+  bool touches(Rect box) {
+    if (!bounds.overlaps(box)) return false;
+    if (text != null) return true;
+    final t = transform;
+    Offset place(Offset q) => t == null ? q : t.apply(q);
+    for (var i = 0; i < points.length; i++) {
+      final a = points[i] as Offset;
+      final b = i + 1 < points.length ? points[i + 1] as Offset : a;
+      // Walk each segment in small steps: few, far-apart points still
+      // count where the line between them crosses the box.
+      final steps = math.max(1, ((b - a).distance / 4).ceil());
+      for (var k = 0; k <= steps; k++) {
+        final q = Offset.lerp(a, b, k / steps)!;
+        if (box.contains(place(q))) return true;
+        if (mirrorX case final m? when box.contains(place(Offset(2 * m - q.dx, q.dy)))) {
+          return true;
+        }
+      }
+    }
+    // A big filled shape can be caught by a box drawn inside it.
+    return fill && shape != null && hits(box.center, reach: 0);
   }
 
   /// Creates a shape stroke from [from] to [to]; its points are generated
@@ -373,6 +566,7 @@ class Stroke {
     int? seed,
     StampShape stamp = StampShape.heart,
     double? mirrorX,
+    StrokeTransform? transform,
     bool isComplete = false,
   }) =>
       Stroke(
@@ -386,6 +580,7 @@ class Stroke {
         mirrorX: mirrorX,
         shape: shape,
         fill: fill && shape.closed,
+        transform: transform,
         isComplete: isComplete,
       )..setShapeEnds(from, to);
 
@@ -417,6 +612,9 @@ class Stroke {
 
   /// Set for text items; null otherwise.
   final TextContent? text;
+
+  /// Set once the stroke has been turned or resized with the move tool.
+  final StrokeTransform? transform;
   TextPainter? _textPainter;
   Offset? _from;
   Offset? _to;
@@ -468,6 +666,11 @@ class Stroke {
 
   /// Paints the stroke (and its mirror image) onto [canvas].
   void paint(Canvas canvas) {
+    if (transform case final t?) {
+      canvas
+        ..save()
+        ..transform(t.matrix4);
+    }
     _paintOnce(canvas);
     if (mirrorX case final m?) {
       canvas
@@ -477,6 +680,7 @@ class Stroke {
       _paintOnce(canvas);
       canvas.restore();
     }
+    if (transform != null) canvas.restore();
   }
 
   Offset get anchor => points.first;
@@ -621,8 +825,12 @@ class Stroke {
           1, ((seed % 360) + distance * 1.2) % 360, 0.6, 0.97)
       .toColor();
 
-  /// The area this stroke paints on the paper, mirror image included.
-  Rect get bounds {
+  /// The area this stroke paints on the paper, mirror image and transform
+  /// included.
+  Rect get bounds => transform?.applyRect(_localBounds) ?? _localBounds;
+
+  /// [bounds] before the transform.
+  Rect get _localBounds {
     if (text != null) return textBounds;
     final r = _bounds;
     if (mirrorX case final m?) {
@@ -816,6 +1024,7 @@ class Stroke {
         'seed': seed,
         if (brush == BrushType.stamp) 'stamp': stamp.name,
         if (mirrorX != null) 'mirrorX': _round(mirrorX!, 10),
+        if (transform != null) 'transform': transform!.toJson(),
         if (text != null) 'text': text!.toJson(),
         // Shapes are stored by their two corners and rebuilt on load.
         if (shape != null) ...{
@@ -835,6 +1044,8 @@ class Stroke {
       };
 
   factory Stroke.fromJson(Map<String, Object?> json) {
+    // Paintings saved before v2.0 have no transform.
+    final transform = StrokeTransform.fromJson(json['transform']);
     if (json['text'] case final Map<String, Object?> text) {
       final p = (json['points'] as List).cast<num>();
       return Stroke.text(
@@ -842,6 +1053,7 @@ class Stroke {
         content: TextContent.fromJson(text),
         color: Color(json['color'] as int),
         opacity: (json['opacity'] as num? ?? 1).toDouble(),
+        transform: transform,
       );
     }
     final shape = ShapeKind.fromName(json['shape'] as String?);
@@ -863,6 +1075,7 @@ class Stroke {
         seed: json['seed'] as int? ?? 0,
         stamp: StampShape.fromName(json['stamp'] as String?),
         mirrorX: (json['mirrorX'] as num?)?.toDouble(),
+        transform: transform,
         isComplete: true,
       );
     }
@@ -877,6 +1090,7 @@ class Stroke {
       seed: json['seed'] as int? ?? 0,
       stamp: StampShape.fromName(json['stamp'] as String?),
       mirrorX: (json['mirrorX'] as num?)?.toDouble(),
+      transform: transform,
       isComplete: true,
       points: [
         for (var i = 0; i + 2 < flat.length; i += 3)

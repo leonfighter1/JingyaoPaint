@@ -99,10 +99,18 @@ abstract final class AppTheme {
 /// An AppBar on the theme's header gradient, with rounded bottom corners.
 /// Its text and icons use the theme's contrast-checked header color.
 class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const GradientAppBar({super.key, required this.title, this.actions});
+  const GradientAppBar({
+    super.key,
+    required this.title,
+    this.actions,
+    this.leading,
+  });
 
   final Widget title;
   final List<Widget>? actions;
+
+  /// Replaces the automatic back button.
+  final Widget? leading;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -115,6 +123,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
     return AppBar(
       title: title,
+      leading: leading,
       actions: actions,
       shape: shape,
       flexibleSpace: DecoratedBox(

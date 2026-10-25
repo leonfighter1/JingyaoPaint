@@ -1,5 +1,13 @@
 # Dev log: JingyaoPaint (靖瑶的画板)
 
+## 2026-10-25: v2.0.0 (box selection, copy/resize/turn, recolor/fade, background music, print preview)
+- Done: the move tool selects several strokes with a box; the selection can be copied, resized (corner knob or buttons), turned (top knob or buttons), recolored, faded and deleted, each as one undo step, with a bar that follows the selection. Strokes gained a saved `StrokeTransform`. Looping background music with two synthesized built-in tracks, uploads of common formats, volume, track choice, a ⋮ quick switch and pause in the background (`audioplayers`). Printing now goes through an in-app preview with a big close button. README gained a Versions table.
+- Clarified by the user: "颜色和透明度" means the selected elements, not the whole board. A started paper color/transparency change was dropped.
+- Emulator (2560×1600 tablet, x86_64 release APK 2.0.0, installed over 1.6.0 with the user's paintings kept): box select (2 of 3 strokes), quarter turn by the knob, 1.5× resize by the knob, copy, recolor to purple and fade to 40%, one undo restoring the opacity, print preview → system print screen → Back → preview → 关闭; music on (active 16 kHz track at −8 dB in the mixer), paused on HOME and resumed on return, looping every 17 s; a WAV added through the system picker played and was deleted again. Test painting, test song and Download file removed afterwards; music left off.
+- Mistakes: sparse-point hit test, bar over the turn knob, English large-text overflow, two scripting slips (MISTAKES rules 29–33). The print bug is logged as a user report.
+- Harness: PASS (analyze 0 issues, 186 tests, build web ok). Release APKs: arm64 28.2 MB / armv7 25.9 MB / x86_64 29.6 MB.
+- Not tested: a real phone (fingers on the knobs, real speakers, MP3/M4A files from a real music library, a real printer); actual sound quality of the built-in tracks (the emulator gives no audio to listen to).
+
 ## 2026-10-25: v1.6.0 (corner controls, move tool, round eraser)
 - Done: undo/redo default to the top right. The undo bar and tools launcher can be dragged, snapping only to the paper's four corners and never overlapping (positions are remembered). The drawer slides in from the launcher's side. New 选择移动 tool auto-selects the last stroke and drags any stroke, with one-step undo. The eraser has no colors or shapes.
 - Emulator (2560×1600 tablet, portrait, x86_64 release APK 1.6.0) checks: undo bar at top right; launcher dragged to bottom left; drawer opens from the left; eraser panel shows only the round-tip hint and sliders; move tool selects the last stroke and drags it; one undo restores it; undo bar dropped on the launcher's corner snaps to bottom right.

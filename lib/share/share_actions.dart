@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../drawing/drawing_controller.dart';
@@ -7,6 +6,7 @@ import '../gallery/painting_store.dart';
 import '../l10n.dart';
 import '../theme/cute_theme.dart';
 import 'painting_export.dart';
+import 'print_preview_page.dart';
 
 IconData _formatIcon(ExportFormat f) => switch (f) {
       ExportFormat.png => Icons.image_rounded,
@@ -69,18 +69,24 @@ Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
   }
 }
 
-/// Opens the system print dialog with [doc] as a one-page picture.
+/// Opens the app's print preview for [doc] (a one-page picture), from which
+/// the system print screen can be opened, or the page closed.
 Future<void> printPainting(BuildContext context, PaintingDoc doc) async {
   final s = S.of(context);
   final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
   try {
     final size = paintingSize(doc);
     final png = await DrawingController.renderPng(
         doc.strokes, size, exportPixelRatio, paper: doc.paper);
-    await Printing.layoutPdf(
-      name: exportName(doc, ExportFormat.pdf),
-      onLayout: (format) => buildPdf(png, size, format),
-    );
+    await navigator.push(MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => PrintPreviewPage(
+        png: png,
+        size: size,
+        name: exportName(doc, ExportFormat.pdf),
+      ),
+    ));
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(s.printFailed(e))));
   }

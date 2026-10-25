@@ -140,7 +140,7 @@ void main() {
       final d = DrawingController()..add(original);
       var current = original;
       for (var x = 20.0; x <= 60; x += 10) {
-        final moved = current.movedTo(Offset(x, 10));
+        final moved = current.moved(Offset(x, 10) - current.anchor);
         d.replace(current, moved, recordUndo: current == original);
         current = moved;
       }

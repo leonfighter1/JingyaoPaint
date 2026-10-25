@@ -8,20 +8,43 @@ What it does:
 - **Drawing**:
   - 10 tools: pen, pencil, marker, highlighter, spray, rainbow, stamps, text, move and a round eraser.
   - Pressure-sensitive strokes, opacity, shapes with fill, mirror drawing and paper colors.
+- **Editing what's drawn** (move tool):
+  - Tap a stroke, or drag a box over empty paper to select several at once.
+  - Drag to move, drag the corner knob to resize (same proportions), drag the top knob to turn.
+  - A bar next to the selection copies, resizes, turns, recolors, changes opacity and deletes. Every change undoes in one step.
 - **Canvas**:
   - Pinch to zoom and pan.
   - Brushes and colors live in a drawer that opens from the "画笔 · 颜色" button.
   - That button and the undo bar can be dragged to any corner of the paper.
 - **Paintings**:
   - Autosave, and a gallery (我的画作) with dates and a year filter.
-  - Send as PNG, JPG, PDF or an editable `.jypaint` file, and print.
+  - Send as PNG, JPG, PDF or an editable `.jypaint` file.
+  - Print from an in-app preview with a big close button (Android's own print screen has none).
   - Open `.jypaint` files received from other apps.
+- **Background music**:
+  - Loops while you draw and pauses in the background. On/off in the ⋮ menu; volume and track in Settings.
+  - Two built-in tracks, or add your own (MP3, M4A/AAC, WAV, OGG/Opus, FLAC, MIDI…).
 - **Look**:
   - 5 portable JSON themes checked against WCAG contrast.
   - 4 bundled cute fonts.
   - Works on tablets in both orientations.
 
-Package name `com.personal.jingyaopaint`, Dart package `jingyao_paint`. The version is in `pubspec.yaml`.
+Package name `com.personal.jingyaopaint`, Dart package `jingyao_paint`. The version is in `pubspec.yaml` (current: **2.0.0**).
+
+## Versions
+
+| Version | Date | Highlights |
+|---|---|---|
+| **2.0.0** | 2026-10-25 | Box-select several strokes; copy, resize, turn, recolor and fade the selection; looping background music (built-in or your own, with volume); print preview with an easy way out |
+| 1.6.0 | 2026-10-25 | Draggable corner controls, move tool, round eraser |
+| 1.5.0 | 2026-10-25 | Tablet and landscape layouts, pinch zoom, tools drawer, smaller APKs |
+| 1.4.0 | 2026-10-24 | Send, print, import `.jypaint`, text tool, undo for every edit; renamed to JingyaoPaint |
+| 1.3.0 | 2026-10-24 | Shapes with fill, eraser range circle, cute fonts |
+| 1.2.0 | 2026-10-24 | Spray, rainbow and stamp brushes, opacity, mirror drawing, paper colors, themes |
+| 1.1.0 | 2026-10-24 | New name and icon, gallery, autosave, Chinese and English |
+| 1.0.0 | 2026-10-23 | Freehand drawing, undo/redo, colors, save to album |
+
+The full list of what each version added, with the code and tests behind it, is in [docs/appdev/FEATURES.md](docs/appdev/FEATURES.md).
 
 ## Prerequisites
 
@@ -129,6 +152,9 @@ flutter test      # unit, rendering and widget tests
 What the tests cover:
 
 - **`test/brush_test.dart`**: pixel tests for brushes and shapes, the text tool, moving strokes and save/reload.
+- **`test/selection_test.dart`**: turning and resizing strokes (pixels, hits, saving), box selection, and the move tool's knobs, bar and color sheet.
+- **`test/music_test.dart`**: the music library, the looping player (on/off, volume, background pause, fallback) and the music settings.
+- **`test/print_test.dart`**: the print preview's close buttons, Back, printing and page orientation.
 - **`test/model_test.dart`**: the painting store, autosave and import.
 - **`test/export_test.dart`**: real PNG, JPEG and PDF output, and `.jypaint` round trips.
 - **`test/theme_test.dart`**: theme JSON and WCAG contrast.
@@ -158,13 +184,14 @@ Builds are obfuscated. Crash symbols go to `build\symbols\<version>`; keep them 
 Install on a running emulator or a connected phone:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r dist\JingyaoPaint-v1.6.0-x86_64.apk
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r dist\JingyaoPaint-v2.0.0-x86_64.apk
 ```
 
 To release a new version:
 
-1. Bump `version:` in `pubspec.yaml`.
+1. Bump `version:` in `pubspec.yaml` (the build number after `+` too: Android needs it to go up).
 2. Bump `appVersion` in `lib/settings_page.dart`.
+3. Add a row to the Versions table above and a section to `docs/appdev/FEATURES.md`.
 
 ## Project layout
 
@@ -173,14 +200,15 @@ lib/
   main.dart            app shell: tabs or side rail, theme, incoming files
   drawing/             canvas page, strokes, drawing controller, text editor
   gallery/             My Paintings page and storage (file / browser / memory)
-  share/               send, print, import, .jypaint format
+  music/               background music: track library, saved uploads, looping player
+  share/               send, print preview, import, .jypaint format
   theme/               portable JSON themes, contrast math, fonts (see theme/README.md)
   widgets/             drop-down menu, draggable corner controls
   l10n.dart            all UI text, zh and en
   settings.dart        remembered choices (brush, colors, corners, theme…)
-assets/                logo, theme JSON files, fonts and their OFL licenses
+assets/                logo, theme JSON files, fonts and their OFL licenses, built-in music
 android/               Android host app (MainActivity handles "open with")
-tool/                  build_apk.ps1, watch_build.ps1, make_icons.ps1
+tool/                  build_apk.ps1, watch_build.ps1, make_icons.ps1, make_music.dart
 docs/appdev/           FEATURES.md, MISTAKES.md, DEVLOG.md
 test/                  see Tests above
 ```

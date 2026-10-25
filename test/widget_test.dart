@@ -30,7 +30,11 @@ Future<TestApp> pumpApp(
   _themes ??= await tester.runAsync(() => ThemeSpec.loadAll(kThemeIds));
   app ??= await createTestApp();
   await tester.pumpWidget(PaintApp(
-      settings: app.settings, session: app.session, themes: _themes!));
+    settings: app.settings,
+    session: app.session,
+    themes: _themes!,
+    music: app.music,
+  ));
   await tester.pumpAndSettle();
   return app;
 }
@@ -302,7 +306,7 @@ void main() {
           .map((w) => w.foregroundPainter)
           .whereType<CanvasOverlayPainter>()
           .single;
-      expect(overlay.selected.value, same(before), reason: 'last stroke');
+      expect(overlay.selected.value.single, same(before), reason: 'last stroke');
 
       // Grab it in the middle and drag it 60px right.
       final paper = tester.getTopLeft(find.byKey(CanvasPageState.paperKey));
@@ -311,7 +315,7 @@ void main() {
       await tester.pumpAndSettle();
       final after = app.session.drawing.strokes.single;
       expect(after.points.first.x, closeTo(before.points.first.x + 60, 1));
-      expect(overlay.selected.value, same(after), reason: 'still selected');
+      expect(overlay.selected.value.single, same(after), reason: 'still selected');
 
       // One undo puts the whole drag back.
       await tester.tap(find.byIcon(Icons.undo_rounded));
@@ -333,7 +337,7 @@ void main() {
           .map((w) => w.foregroundPainter)
           .whereType<CanvasOverlayPainter>()
           .single;
-      expect(overlay.selected.value, isNull);
+      expect(overlay.selected.value, isEmpty);
       expect(app.session.drawing.strokes, hasLength(1));
       await tester.pump(const Duration(seconds: 1));
     });
