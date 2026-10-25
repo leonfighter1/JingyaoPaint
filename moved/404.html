@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JoyPainting · 快乐涂鸦</title>
+  <script>
+    // The app moved from /JingyaoPaint/ to /JoyPainting/. Keep the rest of
+    // the address (and any capitals in the old name) on the way there.
+    (function () {
+      var path = location.pathname;
+      var rest = path.replace(/^\/jingyaopaint/i, '');
+      location.replace('/JoyPainting' + (rest || '/') + location.search +
+          location.hash);
+    })();
+  </script>
+  <meta http-equiv="refresh" content="1; url=/JoyPainting/">
+</head>
+<body style="font-family: sans-serif; text-align: center; padding: 40px;">
+  <p>JoyPainting has moved · 快乐涂鸦搬家了：
+    <a href="/JoyPainting/">leonfighter1.github.io/JoyPainting</a></p>
+</body>
+</html>

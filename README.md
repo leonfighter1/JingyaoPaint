@@ -1,3 +1,9 @@
+# Moved to [leonfighter1/JoyPainting](https://github.com/leonfighter1/JoyPainting)
+
+This app is now **JoyPainting (快乐涂鸦)** and lives at https://github.com/leonfighter1/JoyPainting. The web version is at https://leonfighter1.github.io/JoyPainting/; the old address forwards there. This repository is no longer updated.
+
+---
+
 # JoyPainting (快乐涂鸦)
 
 JoyPainting is a cute drawing app for Android and iOS phones and tablets, built with Flutter, with a web version too. All of them come from the same code in this repository.
