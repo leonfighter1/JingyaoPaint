@@ -1,0 +1,14 @@
+{
+  "id": "lavender",
+  "name": { "zh": "薰衣草", "en": "Lavender Dream" },
+  "emoji": "💜",
+  "primary": "#7B3FC4",
+  "secondary": "#D9C6FF",
+  "background": "#F8F4FF",
+  "surface": "#FFFFFF",
+  "ink": "#35264D",
+  "header": ["#E6D9FF", "#D7C4FF", "#F1E8FF"],
+  "nav": ["#7B3FC4", "#C2185B", "#2E7D6B"],
+  "navBackground": "#F3ECFF",
+  "radius": 24
+}

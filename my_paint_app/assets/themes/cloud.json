@@ -1,0 +1,14 @@
+{
+  "id": "cloud",
+  "name": { "zh": "棉花糖", "en": "Cotton Candy" },
+  "emoji": "🍭",
+  "primary": "#2F6DB5",
+  "secondary": "#FFC9DE",
+  "background": "#F4F8FF",
+  "surface": "#FFFFFF",
+  "ink": "#23324A",
+  "header": ["#D6E8FF", "#F5D6F0", "#FFE0EC"],
+  "nav": ["#2F6DB5", "#C2185B", "#7B3FC4"],
+  "navBackground": "#EDF3FF",
+  "radius": 24
+}

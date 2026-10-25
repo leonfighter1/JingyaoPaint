@@ -1,0 +1,14 @@
+{
+  "id": "peach",
+  "name": { "zh": "蜜桃奶昔", "en": "Peach Milkshake" },
+  "emoji": "🍑",
+  "primary": "#B4461E",
+  "secondary": "#FFCBA4",
+  "background": "#FFF7F0",
+  "surface": "#FFFFFF",
+  "ink": "#4A2C1F",
+  "header": ["#FFE1CC", "#FFD0B5", "#FFEBDD"],
+  "nav": ["#B4461E", "#C2185B", "#7B4FD6"],
+  "navBackground": "#FFF1E6",
+  "radius": 24
+}

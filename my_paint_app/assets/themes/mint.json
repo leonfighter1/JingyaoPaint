@@ -1,0 +1,14 @@
+{
+  "id": "mint",
+  "name": { "zh": "薄荷糖", "en": "Mint Candy" },
+  "emoji": "🍃",
+  "primary": "#1B7F63",
+  "secondary": "#B8F0DC",
+  "background": "#F2FBF7",
+  "surface": "#FFFFFF",
+  "ink": "#1E3A33",
+  "header": ["#CDF5E6", "#B9EEDB", "#E2FAF1"],
+  "nav": ["#1B7F63", "#1F6FA8", "#A63A7C"],
+  "navBackground": "#E9F8F2",
+  "radius": 24
+}

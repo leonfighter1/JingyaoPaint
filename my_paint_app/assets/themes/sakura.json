@@ -1,0 +1,14 @@
+{
+  "id": "sakura",
+  "name": { "zh": "樱花粉", "en": "Sakura Pink" },
+  "emoji": "🌸",
+  "primary": "#C2185B",
+  "secondary": "#FFB7CE",
+  "background": "#FFF5F8",
+  "surface": "#FFFFFF",
+  "ink": "#4A2338",
+  "header": ["#FFD6E5", "#FFC2D8", "#FFE3EE"],
+  "nav": ["#C2185B", "#8E44AD", "#1F7A9C"],
+  "navBackground": "#FFF0F5",
+  "radius": 24
+}
