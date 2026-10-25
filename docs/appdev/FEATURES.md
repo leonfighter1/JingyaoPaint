@@ -1,7 +1,7 @@
 # Features: JingyaoPaint (靖瑶的画板)
 
 Flutter app, Android APK first; Chrome and Windows are used as debug targets.
-Package `com.personal.jingyaopaint`, Dart package `jingyao_paint`, project folder `C:\AIProjects\my_paint_app`.
+Package `com.personal.jingyaopaint`, Dart package `jingyao_paint`, project folder `C:\AIProjects\JingyaoPaint`, which is the root of the git repo https://github.com/leonfighter1/JingyaoPaint. Until 2026-10-25 the folder was `my_paint_app`, inside a repo at `C:\AIProjects`.
 
 ## v1.6.0 (2026-10-25): corner controls, move tool, round eraser
 - **Undo/redo top right**: the undo bar now starts at the paper's top right for right-hand use; the tools launcher starts at the bottom right.

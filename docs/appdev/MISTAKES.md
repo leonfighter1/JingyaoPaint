@@ -1,4 +1,4 @@
-# Mistakes and lessons: 靖瑶的画板 (my_paint_app)
+# Mistakes and lessons: 靖瑶的画板 (JingyaoPaint)
 
 ## Rules (read before every task)
 1. Create Flutter projects with every platform you'll debug on: `flutter create --platforms android,web,windows`.
@@ -17,7 +17,7 @@
 14. Items far down a lazy list aren't built at all, so `skipOffstage: false` won't find them. Use `scrollUntilVisible`, and resolve the scrollable to an element first, because a finder relative to an item that scrolls away stops matching.
 15. Run `textContrastGuideline` on a screen tall enough that no text is half-cut at a scroll edge. Clipped text gets measured against the background and fails falsely.
 16. Tap chips and menu items by their widget (`widgetWithText(ChoiceChip, …)` or the `PopupMenuItem` ancestor), not by their inner text, to avoid "would not hit test" warnings.
-17. Put VS Code launch configs in the folder VS Code actually has open (here `C:\AIProjects\.vscode\launch.json`, pointing into `my_paint_app` via `cwd`), not only in the app's subfolder.
+17. Put VS Code launch configs in the folder VS Code actually has open. The repo's `C:\AIProjects\JingyaoPaint\.vscode\launch.json` covers opening the project itself; `C:\AIProjects\.vscode\launch.json` (outside the repo, `cwd: ${workspaceFolder}/JingyaoPaint`) covers opening the parent folder.
 18. Use single-code-point emoji in UI text. Variation selectors (U+FE0F, as in ☁️ ❤️ ✏️) have no Noto font, so Flutter web logs "Could not find a set of Noto fonts". `theme_test` checks the theme emoji.
 19. Install Android SDK packages with `cmdline-tools\latest\bin\android.exe --sdk=<sdk> sdk install "ndk;28.2.13676358"`, not `sdkmanager.bat`. The .bat splits arguments at `;`, so every package name fails ("Package ndk not found"). Gradle's automatic NDK install goes through the same .bat, so pre-install the NDK version Flutter asks for (`ndkVersion` in `FlutterExtension.kt`).
 20. Unzip big archives with `unzip`/`tar`, not PowerShell 5.1 `Expand-Archive`, which failed on the command-line tools zip.
