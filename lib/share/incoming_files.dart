@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 
 /// Painting files opened from other apps ("open with JingyaoPaint").
 ///
-/// Android only: `MainActivity.kt` reads the file the user opened and passes
-/// its bytes over this channel. Other platforms have no handler, which is
-/// fine; they import through the in-app file picker instead.
+/// On Android `MainActivity.kt`, and on iOS `OpenFilePlugin` in
+/// `AppDelegate.swift`, read the file the user opened and pass its bytes over
+/// this channel. Other platforms have no handler, which is fine; they import
+/// through the in-app file picker instead.
 abstract final class IncomingFiles {
   static const _channel = MethodChannel('jingyao/open_file');
 
@@ -22,7 +23,7 @@ abstract final class IncomingFiles {
       final initial = await _channel.invokeMethod<Uint8List>('takeInitialFile');
       if (initial != null) await onFile(initial);
     } on MissingPluginException {
-      // Not Android: nothing is ever opened from outside.
+      // Not Android or iOS: nothing is ever opened from outside.
     }
   }
 }

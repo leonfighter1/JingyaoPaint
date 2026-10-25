@@ -1,6 +1,6 @@
 # JingyaoPaint (靖瑶的画板)
 
-JingyaoPaint is a cute drawing app for Android phones and tablets, built with Flutter.
+JingyaoPaint is a cute drawing app for Android and iOS phones and tablets, built with Flutter. Both apps come from the same code in this repository.
 The UI is in Simplified Chinese by default, with English available in Settings.
 
 What it does:
@@ -35,7 +35,7 @@ Package name `com.personal.jingyaopaint`, Dart package `jingyao_paint`. The vers
 
 | Version | Date | Highlights |
 |---|---|---|
-| **2.0.0** | 2026-10-25 | Box-select several strokes; copy, resize, turn, recolor and fade the selection; looping background music (built-in or your own, with volume); print preview with an easy way out |
+| **2.0.0** | 2026-10-25 | First iOS (iPhone and iPad) version. Box-select several strokes; copy, resize, turn, recolor and fade the selection; looping background music (built-in or your own, with volume); print preview with an easy way out |
 | 1.6.0 | 2026-10-25 | Draggable corner controls, move tool, round eraser |
 | 1.5.0 | 2026-10-25 | Tablet and landscape layouts, pinch zoom, tools drawer, smaller APKs |
 | 1.4.0 | 2026-10-24 | Send, print, import `.jypaint`, text tool, undo for every edit; renamed to JingyaoPaint |
@@ -58,6 +58,7 @@ The project is developed on Windows 10/11 with VS Code. These are the versions i
 | [Android Studio](https://developer.android.com/studio) | latest | Ships the JDK (JBR) that Gradle uses, plus the SDK and emulator manager |
 | Android SDK packages | see below | Building and running on Android |
 | Google Chrome | latest | Fastest debug target (no emulator needed) |
+| A Mac with the newest Xcode *(optional)* | latest | Running iOS locally. Without one, GitHub Actions builds iOS (see below). |
 | Visual Studio 2022 with "Desktop development with C++" *(optional)* | 2022 | Windows desktop build only |
 
 ### Android SDK packages
@@ -103,6 +104,7 @@ Gradle 9.3.1 is downloaded automatically by the wrapper. The Android build targe
 | Phone emulator | AVD `medium_phone` (1080×2400) | Default phone layout |
 | Tablet emulator | AVD `medium_tablet` (2560×1600) | Side rail, landscape/portrait, paper scaling |
 | Real Android device | USB debugging on, then `adb devices` | Stylus pressure, real pinch, sharing to chat apps, printing |
+| iPhone and iPad simulators | GitHub Actions (`.github/workflows/ios.yml`) or a Mac | The real iOS build: starts on the newest iPhone and iPad and leaves screenshots |
 
 Create and start the emulators with Android Studio's Device Manager, or:
 
@@ -155,6 +157,7 @@ What the tests cover:
 - **`test/selection_test.dart`**: turning and resizing strokes (pixels, hits, saving), box selection, and the move tool's knobs, bar and color sheet.
 - **`test/music_test.dart`**: the music library, the looping player (on/off, volume, background pause, fallback) and the music settings.
 - **`test/print_test.dart`**: the print preview's close buttons, Back, printing and page orientation.
+- **`test/ios_test.dart`**: the app running as iOS (scrolling, transitions and text editing differ per platform), Apple's music formats and the iPad share-sheet anchor.
 - **`test/model_test.dart`**: the painting store, autosave and import.
 - **`test/export_test.dart`**: real PNG, JPEG and PDF output, and `.jypaint` round trips.
 - **`test/theme_test.dart`**: theme JSON and WCAG contrast.
@@ -193,6 +196,25 @@ To release a new version:
 2. Bump `appVersion` in `lib/settings_page.dart`.
 3. Add a row to the Versions table above and a section to `docs/appdev/FEATURES.md`.
 
+## iOS
+
+iOS builds need macOS and Xcode, so they run on GitHub's Macs (free for this public repository). Every push to `main` (or a manual run under Actions → iOS → Run workflow) does:
+
+1. Analyze and test.
+2. Build an unsigned release build for iPhone and iPad with the newest stable Xcode, which targets the newest iOS.
+3. Start the app on the newest iPhone and iPad Pro simulators. A crash on launch fails the run.
+
+The screenshots and app logs are under the run's **Artifacts → ios-screenshots**.
+
+The iOS app needs iOS 15 or later. Its bundle ID `com.personal.jingyaopaint` matches the Android package. iOS-specific parts:
+
+- `ios/Runner/Info.plist`: Chinese and English localizations, Photos permission texts and the `.jypaint` document type.
+- `ios/Runner/AppDelegate.swift`: "Open in JingyaoPaint" for `.jypaint` files, on the same channel as Android's `MainActivity.kt`.
+- Background music uses the "ambient" audio session: the silent switch mutes it, and it plays along with other apps' audio.
+- The app icon comes from `tool/make_icons.ps1`.
+
+To install on a real iPhone or iPad, or to share through TestFlight, you need an Apple Developer account and signing set up. The workflow doesn't do that yet. On a Mac, you can run the app directly: `flutter run -d <simulator or device>`.
+
 ## Project layout
 
 ```
@@ -208,7 +230,9 @@ lib/
   settings.dart        remembered choices (brush, colors, corners, theme…)
 assets/                logo, theme JSON files, fonts and their OFL licenses, built-in music
 android/               Android host app (MainActivity handles "open with")
-tool/                  build_apk.ps1, watch_build.ps1, make_icons.ps1, make_music.dart
+ios/                   iOS host app (AppDelegate handles "Open in", Info.plist)
+.github/workflows/     ios.yml: builds and starts the iOS app on GitHub's Macs
+tool/                  build_apk.ps1, watch_build.ps1, make_icons.ps1, make_music.dart, ios_sim_smoke.sh
 docs/appdev/           FEATURES.md, MISTAKES.md, DEVLOG.md
 test/                  see Tests above
 ```

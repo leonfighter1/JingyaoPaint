@@ -463,7 +463,7 @@ class _MusicSettings extends StatelessWidget {
                 leading:
                     Icon(Icons.upload_file_rounded, color: cute.spec.primary),
                 title: Text(s.uploadMusic),
-                subtitle: Text(s.musicFormats),
+                subtitle: Text(s.musicFormats(apple: MusicLibrary.isApple)),
                 onTap: () => _upload(context),
               ),
             ],

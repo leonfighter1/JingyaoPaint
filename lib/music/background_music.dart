@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../settings.dart';
@@ -19,9 +20,22 @@ abstract class MusicEngine {
 /// Foundation, or the browser's audio element).
 class AudioPlayersEngine implements MusicEngine {
   final _player = AudioPlayer(playerId: 'backgroundMusic');
+  bool _contextSet = false;
+
+  /// On iOS, background music uses the "ambient" audio session, as games
+  /// do: the silent switch mutes it, and it plays along with other apps'
+  /// audio instead of stopping it. (audioplayers' default would ignore the
+  /// silent switch.) Android keeps its usual media playback.
+  static final _iosContext = AudioContext(
+    iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
+  );
 
   @override
   Future<void> play(MusicSource source, double volume) async {
+    if (!_contextSet && defaultTargetPlatform == TargetPlatform.iOS) {
+      await _player.setAudioContext(_iosContext);
+      _contextSet = true;
+    }
     await _player.stop();
     await _player.setReleaseMode(ReleaseMode.loop);
     await _player.play(

@@ -34,8 +34,16 @@
 31. When scripting the emulator, wait for snackbars to go before tapping bottom controls; a snackbar covers them and every tap misses.
 32. In Git Bash with `MSYS_NO_PATHCONV=1`, pass Windows paths (`C:/...`) to adb.exe for local files; `/c/...` is no longer translated.
 33. Wrap section titles and other single-line labels in a Row with `Flexible`, and run the 360×640 large-text test in English, whose words are longer.
+34. Files made by `flutter create` on Windows have CRLF line endings. Convert them to LF (or match `\r?\n`) before regex edits, and check every edit landed (list the plist keys afterwards).
+35. When native code can't be compiled here (Swift on Windows), read the exact framework headers for the SDK revision in use before writing it, and say plainly that it hasn't been compiled until CI runs it.
 
 ## Log
+
+### 2026-10-25: Half of the Info.plist edits silently didn't apply
+- **Symptom:** after a scripted edit, the plist was missing the Photos texts, the exported type and two flags, with no error.
+- **Root cause:** `flutter create` wrote the plist with CRLF line endings; patterns with a bare `\n` didn't match, while patterns without newlines did.
+- **Fix:** converted the file to LF, re-ran the edits and listed every key to check.
+- **Rule:** 34.
 
 ### 2026-10-25: A quick straight stroke couldn't be picked up in the middle
 - **Symptom:** in a widget test, tapping the middle of a fast straight line with the move tool selected nothing.

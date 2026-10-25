@@ -1,5 +1,13 @@
 # Dev log: JingyaoPaint (靖瑶的画板)
 
+## 2026-10-25: iOS version (same repo, built on GitHub Actions)
+- Decision (with the user): keep iOS in this repo, since Flutter shares all of `lib/`; build on GitHub-hosted Macs, which are free for this public repo. Signing and TestFlight wait for an Apple Developer account.
+- Done: `flutter create --platforms ios` (Flutter 3.47.8 template: SceneDelegate, implicit engine, Swift Package Manager); bundle ID set to match Android; Info.plist (name, zh-Hans/en, Photos texts, `.jypaint` document and exported type, no in-place opening, no-encryption flag); `OpenFilePlugin` in AppDelegate.swift written against the engine headers at revision 737ba8f885 (scene lifecycle delegate; Flutter replays launch options to it); single 1024px opaque icon from `make_icons.ps1`; ambient audio session on iOS; Apple-only music formats; iPad share anchor; `.github/workflows/ios.yml` and `tool/ios_sim_smoke.sh`; README iOS section.
+- Mistakes: plist CRLF made regex edits miss (rule 34). Rule 35 added for native code that can't be compiled here.
+- Harness: PASS (analyze 0 issues, 191 tests, build web ok). Android/web icons unchanged after regenerating.
+- **Not verified:** nothing iOS has been compiled or run. The Swift code, Info.plist and the workflow get their first real check when this is pushed and the iOS workflow runs. Also untested: a real device, Apple Pencil pressure, AirPrint on iPad, "Open in" from Files/AirDrop.
+- Next: commit and push, then read the first workflow run (build log, simulator screenshots) and fix what it finds.
+
 ## 2026-10-25: v2.0.0 (box selection, copy/resize/turn, recolor/fade, background music, print preview)
 - Done: the move tool selects several strokes with a box; the selection can be copied, resized (corner knob or buttons), turned (top knob or buttons), recolored, faded and deleted, each as one undo step, with a bar that follows the selection. Strokes gained a saved `StrokeTransform`. Looping background music with two synthesized built-in tracks, uploads of common formats, volume, track choice, a ⋮ quick switch and pause in the background (`audioplayers`). Printing now goes through an in-app preview with a big close button. README gained a Versions table.
 - Clarified by the user: "颜色和透明度" means the selected elements, not the whole board. A started paper color/transparency change was dropped.

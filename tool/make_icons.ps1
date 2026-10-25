@@ -70,8 +70,13 @@ function Draw-Foreground($g) {
 
 # Kinds: full (rounded tile, cropped to the artwork), fg / bg (adaptive
 # layers), maskable (full-bleed square for web).
-function Save-Icon([string]$kind, [int]$size, [string]$relPath) {
-    $bmp = New-Object System.Drawing.Bitmap $size, $size
+function Save-Icon([string]$kind, [int]$size, [string]$relPath, [switch]$Opaque) {
+    # The App Store rejects icons with an alpha channel.
+    $bmp = if ($Opaque) {
+        New-Object System.Drawing.Bitmap $size, $size, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+    } else {
+        New-Object System.Drawing.Bitmap $size, $size
+    }
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -121,3 +126,8 @@ Save-Icon 'maskable' 192 'web/icons/Icon-maskable-192.png'
 Save-Icon 'maskable' 512 'web/icons/Icon-maskable-512.png'
 Save-Icon 'full' 32 'web/favicon.png'
 Save-Icon 'full' 256 'assets/icon/logo.png'
+
+# iOS: one square, opaque 1024 px icon; Xcode makes the smaller sizes and iOS
+# rounds the corners itself. The palette sits in the same safe middle as on
+# Android's adaptive icon.
+Save-Icon 'maskable' 1024 'ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png' -Opaque

@@ -168,9 +168,11 @@ class S {
   String get musicVolume => _t('音量', 'Volume');
   String get musicTrack => _t('选择音乐', 'Music');
   String get uploadMusic => _t('上传本地音乐', 'Add music from this device');
-  String get musicFormats => _t(
-      '支持 MP3、M4A/AAC、WAV、OGG/Opus、FLAC、MIDI 等常见格式',
-      'MP3, M4A/AAC, WAV, OGG/Opus, FLAC, MIDI and other common formats');
+  String musicFormats({required bool apple}) => apple
+      ? _t('支持 MP3、M4A/AAC、WAV、AIFF、FLAC 等常见格式',
+          'MP3, M4A/AAC, WAV, AIFF, FLAC and other common formats')
+      : _t('支持 MP3、M4A/AAC、WAV、OGG/Opus、FLAC、MIDI 等常见格式',
+          'MP3, M4A/AAC, WAV, OGG/Opus, FLAC, MIDI and other common formats');
   String get builtInMusic => _t('自带', 'Built-in');
   String get myMusic => _t('我上传的', 'Added by me');
   String trackName(String id) => switch (id) {

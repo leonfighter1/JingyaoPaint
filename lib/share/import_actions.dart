@@ -23,7 +23,12 @@ Future<void> pickAndImport(
         'application/json',
         'application/octet-stream',
       ],
-      uniformTypeIdentifiers: const ['public.data'],
+      // The type declared in ios/Runner/Info.plist, plus any data for files
+      // that arrive without it.
+      uniformTypeIdentifiers: const [
+        'com.personal.jingyaopaint.painting',
+        'public.data',
+      ],
       webWildCards: const ['.${PaintingFile.extension}'],
     ),
   ]);

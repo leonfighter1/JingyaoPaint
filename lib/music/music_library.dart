@@ -83,10 +83,24 @@ class MusicLibrary extends ChangeNotifier {
   ];
 
   /// File types Android, Windows and browsers can generally play.
-  static const extensions = [
+  static const commonExtensions = [
     'mp3', 'm4a', 'aac', 'mp4', 'wav', 'ogg', 'oga', 'opus', 'flac', //
     'mid', 'midi', 'amr', '3gp', 'webm', 'wma',
   ];
+
+  /// What Apple's player handles: no Ogg, Opus, WebM, WMA, AMR or MIDI, but
+  /// AIFF and CAF.
+  static const appleExtensions = [
+    'mp3', 'm4a', 'aac', 'mp4', 'wav', 'aif', 'aiff', 'caf', 'flac',
+  ];
+
+  static bool get isApple =>
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  /// The file types this device can play.
+  static List<String> get extensions =>
+      isApple ? appleExtensions : commonExtensions;
 
   /// Bigger files are refused; background music doesn't need more.
   static const maxBytes = 60 * 1024 * 1024;

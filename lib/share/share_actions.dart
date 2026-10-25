@@ -21,6 +21,7 @@ IconData _formatIcon(ExportFormat f) => switch (f) {
 Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
   final s = S.of(context);
   final messenger = ScaffoldMessenger.of(context);
+  final origin = shareOrigin(context);
   final format = await showModalBottomSheet<ExportFormat>(
     context: context,
     showDragHandle: true,
@@ -63,10 +64,20 @@ Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
       files: [XFile.fromData(file.bytes, mimeType: file.mimeType, name: file.name)],
       fileNameOverrides: [file.name],
       title: s.appTitle,
+      sharePositionOrigin: origin,
     ));
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(s.sendFailed(e))));
   }
+}
+
+/// Where the share sheet points from: the area of the widget at [context],
+/// in screen coordinates. On iPad the sheet is a popover and needs one (it
+/// fails without); phones ignore it.
+Rect? shareOrigin(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.hasSize || box.size.isEmpty) return null;
+  return box.localToGlobal(Offset.zero) & box.size;
 }
 
 /// Opens the app's print preview for [doc] (a one-page picture), from which
