@@ -5,13 +5,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'app_theme.dart';
 import 'drawing/canvas_page.dart';
+import 'family.dart';
 import 'gallery/gallery_page.dart';
-import 'gallery/painting_store.dart';
 import 'gallery/store_backend.dart';
 import 'l10n.dart';
 import 'music/background_music.dart';
 import 'music/music_files.dart';
 import 'music/music_library.dart';
+import 'onboarding_page.dart';
 import 'painting_session.dart';
 import 'settings.dart';
 import 'settings_page.dart';
@@ -25,13 +26,20 @@ Future<void> main() async {
   _registerFontLicenses();
   final settings = await AppSettings.load();
   final themes = await ThemeSpec.loadAll(kThemeIds);
+  final backend = createStoreBackend();
   final session = PaintingSession(
-    store: PaintingStore(createStoreBackend()),
+    store: Family.storeFor(backend, settings.currentKid),
     settings: settings,
   );
   await session.restoreLast();
   final music = MusicLibrary(createMusicFiles());
   await music.load();
+  final family = Family(
+    settings: settings,
+    backend: backend,
+    session: session,
+    music: music,
+  );
   final player = BackgroundMusic(
     settings: settings,
     library: music,
@@ -42,6 +50,7 @@ Future<void> main() async {
     session: session,
     themes: themes,
     music: music,
+    family: family,
     player: player,
   ));
 }
@@ -66,6 +75,7 @@ class PaintApp extends StatelessWidget {
     required this.session,
     required this.themes,
     required this.music,
+    required this.family,
     this.player,
   });
 
@@ -73,6 +83,7 @@ class PaintApp extends StatelessWidget {
   final PaintingSession session;
   final List<ThemeSpec> themes;
   final MusicLibrary music;
+  final Family family;
 
   /// Plays the background music; null in tests that don't need it.
   final BackgroundMusic? player;
@@ -92,10 +103,14 @@ class PaintApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge(
-          [settings.locale, settings.themeId, settings.fontId]),
+      listenable: Listenable.merge([
+        settings.locale,
+        settings.themeId,
+        settings.fontId,
+        settings.onboarded,
+      ]),
       builder: (context, _) => MaterialApp(
-        onGenerateTitle: (context) => S.of(context).appTitle,
+        onGenerateTitle: (context) => S.of(context).appName,
         debugShowCheckedModeBanner: false,
         theme: _theme(settings.themeId.value, settings.fontId.value),
         locale: settings.locale.value,
@@ -110,13 +125,17 @@ class PaintApp extends StatelessWidget {
           onPointerDown: (_) => player?.userTouched(),
           child: child,
         ),
-        home: HomeShell(
-          settings: settings,
-          session: session,
-          themes: themes,
-          music: music,
-          player: player,
-        ),
+        // A new install (or a reset) starts with the setup page.
+        home: settings.onboarded.value
+            ? HomeShell(
+                settings: settings,
+                session: session,
+                themes: themes,
+                music: music,
+                family: family,
+                player: player,
+              )
+            : OnboardingPage(settings: settings, themes: themes),
       ),
     );
   }
@@ -130,6 +149,7 @@ class HomeShell extends StatefulWidget {
     required this.session,
     required this.themes,
     required this.music,
+    required this.family,
     this.player,
   });
 
@@ -137,6 +157,7 @@ class HomeShell extends StatefulWidget {
   final PaintingSession session;
   final List<ThemeSpec> themes;
   final MusicLibrary music;
+  final Family family;
   final BackgroundMusic? player;
 
   @override
@@ -202,6 +223,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         settings: widget.settings,
         themes: widget.themes,
         music: widget.music,
+        family: widget.family,
       ),
     ));
   }

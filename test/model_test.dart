@@ -80,12 +80,23 @@ void main() {
   });
 
   group('AppSettings', () {
-    test('defaults to Chinese, pen and black', () async {
+    test('a new install starts in English, with pen and black', () async {
       SharedPreferences.setMockInitialValues({});
       final settings = await AppSettings.load();
-      expect(settings.locale.value.languageCode, 'zh');
+      expect(settings.locale.value.languageCode, 'en');
+      expect(settings.onboarded.value, isFalse, reason: 'shows the setup');
+      expect(settings.kidName, isEmpty);
       expect(settings.brush, BrushType.pen);
       expect(settings.color.toARGB32(), Colors.black.toARGB32());
+    });
+
+    test('an install from before v2.1 stays Chinese and keeps 靖瑶', () async {
+      SharedPreferences.setMockInitialValues({'flutter.brush': 'marker'});
+      final settings = await AppSettings.load();
+      expect(settings.locale.value.languageCode, 'zh');
+      expect(settings.kidName, '靖瑶');
+      expect(settings.currentKid.storePrefix, isEmpty,
+          reason: 'her paintings stay where they are');
     });
 
     test('remembers brush, color, per-brush size and language', () async {

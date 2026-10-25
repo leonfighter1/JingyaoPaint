@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -5,11 +8,18 @@ import 'package:flutter/widgets.dart';
 import '../settings.dart';
 import 'music_library.dart';
 
-/// Plays one track over and over. Behind an interface so tests can use a
-/// fake: there's no sound hardware in a widget test.
+/// Plays one track, over and over or once. Behind an interface so tests can
+/// use a fake: there's no sound hardware in a widget test.
 abstract class MusicEngine {
-  /// Starts [source] from the beginning, looping, at [volume] (0 to 1).
-  Future<void> play(MusicSource source, double volume);
+  /// Starts [source] from the beginning at [volume] (0 to 1), repeating it
+  /// if [loop].
+  Future<void> play(MusicSource source, double volume, {bool loop = true});
+
+  /// Whether the track playing starts again when it ends.
+  Future<void> setLoop(bool loop);
+
+  /// Called when a track that doesn't loop reaches its end.
+  set onComplete(VoidCallback? callback);
   Future<void> pause();
   Future<void> resume();
   Future<void> setVolume(double volume);
@@ -19,8 +29,17 @@ abstract class MusicEngine {
 /// The real player (audioplayers: Android's media player, Windows Media
 /// Foundation, or the browser's audio element).
 class AudioPlayersEngine implements MusicEngine {
+  AudioPlayersEngine() {
+    _completions = _player.onPlayerComplete.listen((_) => _onComplete?.call());
+  }
+
   final _player = AudioPlayer(playerId: 'backgroundMusic');
+  late final StreamSubscription<void> _completions;
+  VoidCallback? _onComplete;
   bool _contextSet = false;
+
+  @override
+  set onComplete(VoidCallback? callback) => _onComplete = callback;
 
   /// On iOS, background music uses the "ambient" audio session, as games
   /// do: the silent switch mutes it, and it plays along with other apps'
@@ -31,13 +50,14 @@ class AudioPlayersEngine implements MusicEngine {
   );
 
   @override
-  Future<void> play(MusicSource source, double volume) async {
+  Future<void> play(MusicSource source, double volume,
+      {bool loop = true}) async {
     if (!_contextSet && defaultTargetPlatform == TargetPlatform.iOS) {
       await _player.setAudioContext(_iosContext);
       _contextSet = true;
     }
     await _player.stop();
-    await _player.setReleaseMode(ReleaseMode.loop);
+    await setLoop(loop);
     await _player.play(
       switch (source) {
         AssetMusic(:final path) => AssetSource(path),
@@ -49,6 +69,10 @@ class AudioPlayersEngine implements MusicEngine {
   }
 
   @override
+  Future<void> setLoop(bool loop) =>
+      _player.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.stop);
+
+  @override
   Future<void> pause() => _player.pause();
 
   @override
@@ -58,18 +82,24 @@ class AudioPlayersEngine implements MusicEngine {
   Future<void> setVolume(double volume) => _player.setVolume(volume);
 
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    await _completions.cancel();
+    await _player.dispose();
+  }
 }
 
 /// Keeps the background music in step with the settings (on/off, track,
-/// volume) and pauses it while the app is in the background.
+/// volume, play order) and pauses it while the app is in the background.
 class BackgroundMusic with WidgetsBindingObserver {
   BackgroundMusic({
     required this.settings,
     required this.library,
     required this.engine,
     this.needsTouchToPlay = kIsWeb,
-  });
+    math.Random? random,
+  }) : _random = random ?? math.Random();
+
+  final math.Random _random;
 
   final AppSettings settings;
   final MusicLibrary library;
@@ -90,19 +120,39 @@ class BackgroundMusic with WidgetsBindingObserver {
   bool _playing = false;
   String? _loaded;
   double? _volume;
+  bool? _loop;
   Future<void> _queue = Future.value();
 
   void start() {
     WidgetsBinding.instance.addObserver(this);
     settings.addListener(_sync);
     library.addListener(_sync);
+    engine.onComplete = _next;
     _sync();
+  }
+
+  /// A track ended (in order or shuffle): picks the next one. Setting it
+  /// starts it, even when it's the same track again.
+  void _next() {
+    final tracks = library.tracks;
+    final current = library.trackById(settings.musicTrack);
+    final at = tracks.indexWhere((t) => t.id == current.id);
+    final MusicTrack next;
+    if (settings.musicMode == MusicMode.shuffle && tracks.length > 1) {
+      final others = [for (final t in tracks) if (t.id != current.id) t];
+      next = others[_random.nextInt(others.length)];
+    } else {
+      next = tracks[(at + 1) % tracks.length];
+    }
+    _loaded = null;
+    settings.musicTrack = next.id;
   }
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     settings.removeListener(_sync);
     library.removeListener(_sync);
+    engine.onComplete = null;
     engine.dispose();
   }
 
@@ -148,13 +198,19 @@ class BackgroundMusic with WidgetsBindingObserver {
     if (_waitingForTouch) return;
     final track = library.trackById(settings.musicTrack);
     final volume = settings.musicVolume;
+    final loop = settings.musicMode == MusicMode.repeatOne;
     try {
       if (_loaded != track.id) {
         _loaded = track.id;
         _volume = volume;
+        _loop = loop;
         _playing = true;
-        await engine.play(track.source, volume);
+        await engine.play(track.source, volume, loop: loop);
         return;
+      }
+      if (_loop != loop) {
+        _loop = loop;
+        await engine.setLoop(loop);
       }
       if (!_playing) {
         _playing = true;

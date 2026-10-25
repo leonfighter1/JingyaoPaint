@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Painting files opened from other apps ("open with JingyaoPaint").
+/// Painting files opened from other apps ("open with JoyPainting").
 ///
 /// On Android `MainActivity.kt`, and on iOS `OpenFilePlugin` in
 /// `AppDelegate.swift`, read the file the user opened and pass its bytes over

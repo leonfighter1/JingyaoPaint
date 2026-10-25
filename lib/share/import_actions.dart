@@ -14,7 +14,7 @@ Future<void> pickAndImport(
   final messenger = ScaffoldMessenger.of(context);
   final file = await openFile(acceptedTypeGroups: [
     XTypeGroup(
-      label: s.appTitle,
+      label: s.appName,
       extensions: const [PaintingFile.extension],
       // Chat apps often save it without a specific type, so accept the
       // generic ones too; the content is checked on import.

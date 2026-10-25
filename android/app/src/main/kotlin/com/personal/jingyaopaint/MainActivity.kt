@@ -8,7 +8,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Passes painting files opened from other apps ("open with JingyaoPaint") to
+ * Passes painting files opened from other apps ("open with JoyPainting") to
  * Flutter over the `jingyao/open_file` channel. See lib/share/incoming_files.dart.
  */
 class MainActivity : FlutterActivity() {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hans">
+<html lang="en">
 <head>
   <!-- Replaced by `flutter build web --base-href`: "/JingyaoPaint/" on
        GitHub Pages (see .github/workflows/web.yml). -->
@@ -7,7 +7,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="靖瑶的画板：给小朋友的画画 App · JingyaoPaint, a drawing app for kids">
+  <meta name="description" content="JoyPainting (快乐涂鸦), a drawing app for kids · 给小朋友的画画 App">
   <!-- Full screen, including around the notch; the app does its own
        pinch zoom, so the page itself never zooms. -->
   <meta name="viewport"
@@ -19,12 +19,12 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="JingyaoPaint">
+  <meta name="apple-mobile-web-app-title" content="JoyPainting">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>JingyaoPaint · 靖瑶的画板</title>
+  <title>JoyPainting</title>
   <link rel="manifest" href="manifest.json">
 
   <style>
@@ -44,9 +44,19 @@
 <body>
   <div id="loading">
     <img src="icons/Icon-192.png" alt="">
-    <div>靖瑶的画板 加载中…</div>
+    <div id="loading-text">JoyPainting · Loading…</div>
   </div>
   <script>
+    // Chinese browsers see the Chinese name, also on the home screen: Safari
+    // takes it from apple-mobile-web-app-title when "Add to Home Screen" is
+    // tapped. (The app itself follows its own language setting.)
+    if ((navigator.language || '').toLowerCase().indexOf('zh') === 0) {
+      document.documentElement.lang = 'zh-Hans';
+      document.title = '快乐涂鸦';
+      document.querySelector('meta[name="apple-mobile-web-app-title"]')
+          .setAttribute('content', '快乐涂鸦');
+      document.getElementById('loading-text').textContent = '快乐涂鸦 加载中…';
+    }
     window.addEventListener('flutter-first-frame', function () {
       var el = document.getElementById('loading');
       if (el) el.remove();

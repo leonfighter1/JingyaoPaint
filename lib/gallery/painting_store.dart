@@ -15,9 +15,14 @@ class PaintingMeta {
     required this.width,
     required this.height,
     required this.strokeCount,
+    this.name = '',
   });
 
   final String id;
+
+  /// What the painting is called ("My painting 1"). Empty for paintings
+  /// saved before v2.1, until they're shown in the gallery and numbered.
+  final String name;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -33,7 +38,18 @@ class PaintingMeta {
         'width': width,
         'height': height,
         'strokeCount': strokeCount,
+        if (name.isNotEmpty) 'name': name,
       };
+
+  PaintingMeta copyWith({String? name, DateTime? updatedAt}) => PaintingMeta(
+        id: id,
+        name: name ?? this.name,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        width: width,
+        height: height,
+        strokeCount: strokeCount,
+      );
 
   factory PaintingMeta.fromJson(Map<String, Object?> json) => PaintingMeta(
         id: json['id'] as String,
@@ -44,6 +60,7 @@ class PaintingMeta {
         width: (json['width'] as num? ?? 0).toDouble(),
         height: (json['height'] as num? ?? 0).toDouble(),
         strokeCount: json['strokeCount'] as int? ?? 0,
+        name: json['name'] as String? ?? '',
       );
 }
 
@@ -90,6 +107,30 @@ abstract class StoreBackend {
   Future<Uint8List?> readBytes(String name);
   Future<void> writeBytes(String name, Uint8List value);
   Future<void> remove(String name);
+}
+
+/// Gives each kid their own paintings in one storage: every item name gets
+/// [prefix] in front (`kid-ab12-index.json`). Flat names, so file storage
+/// needs no sub-folders.
+class PrefixedStoreBackend implements StoreBackend {
+  PrefixedStoreBackend(this._inner, this.prefix);
+
+  final StoreBackend _inner;
+  final String prefix;
+
+  @override
+  Future<String?> readText(String name) => _inner.readText('$prefix$name');
+  @override
+  Future<void> writeText(String name, String value) =>
+      _inner.writeText('$prefix$name', value);
+  @override
+  Future<Uint8List?> readBytes(String name) =>
+      _inner.readBytes('$prefix$name');
+  @override
+  Future<void> writeBytes(String name, Uint8List value) =>
+      _inner.writeBytes('$prefix$name', value);
+  @override
+  Future<void> remove(String name) => _inner.remove('$prefix$name');
 }
 
 class MemoryStoreBackend implements StoreBackend {
@@ -157,7 +198,17 @@ class PaintingStore extends ChangeNotifier {
 
   Future<PaintingDoc?> load(String id) async {
     final raw = await _backend.readText('$id.json');
-    return raw == null ? null : PaintingDoc.decode(raw);
+    if (raw == null) return null;
+    final doc = PaintingDoc.decode(raw);
+    if (doc.meta.name.isNotEmpty) return doc;
+    // Saved before v2.1: its name (from [nameUnnamed]) is only in the index.
+    final named = (await _loadIndex()).where((m) => m.id == id).firstOrNull;
+    if (named == null || named.name.isEmpty) return doc;
+    return PaintingDoc(
+      meta: doc.meta.copyWith(name: named.name),
+      strokes: doc.strokes,
+      paper: doc.paper,
+    );
   }
 
   Future<Uint8List?> thumbnail(String id) async {
@@ -175,6 +226,63 @@ class PaintingStore extends ChangeNotifier {
           ..removeWhere((m) => m.id == id)
           ..add(doc.meta);
         await _writeIndex(index);
+        notifyListeners();
+      });
+
+  /// Gives the painting a new name, keeping everything else (including when
+  /// it was last edited, so the gallery order doesn't jump).
+  Future<void> rename(String id, String name) => _serial(() async {
+        final index = await _loadIndex();
+        final at = index.indexWhere((m) => m.id == id);
+        if (at < 0) return;
+        final raw = await _backend.readText('$id.json');
+        if (raw != null) {
+          final doc = PaintingDoc.decode(raw);
+          await _backend.writeText(
+              '$id.json',
+              PaintingDoc(
+                meta: doc.meta.copyWith(name: name),
+                strokes: doc.strokes,
+                paper: doc.paper,
+              ).encode());
+        }
+        index[at] = index[at].copyWith(name: name);
+        await _writeIndex(index);
+        notifyListeners();
+      });
+
+  /// Names paintings saved before v2.1, oldest first, after the ones that
+  /// have names: "My painting 3", "My painting 4"…
+  Future<void> nameUnnamed(String Function(int number) nameFor) =>
+      _serial(() async {
+        final index = await _loadIndex();
+        final unnamed = [for (final m in index) if (m.name.isEmpty) m]
+          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        if (unnamed.isEmpty) return;
+        final taken = {for (final m in index) m.name};
+        var n = 1;
+        for (final m in unnamed) {
+          while (taken.contains(nameFor(n))) {
+            n++;
+          }
+          final name = nameFor(n);
+          taken.add(name);
+          index[index.indexOf(m)] = m.copyWith(name: name);
+        }
+        await _writeIndex(index);
+        notifyListeners();
+      });
+
+  /// Deletes every painting (when a kid is removed or the app is reset).
+  Future<void> deleteAll() => _serial(() async {
+        final index = await _loadIndex();
+        for (final m in index) {
+          await _backend.remove('${m.id}.json');
+          await _backend.remove('${m.id}.png');
+        }
+        index.clear();
+        await _backend.remove(_indexName);
+        _thumbnails.clear();
         notifyListeners();
       });
 

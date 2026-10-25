@@ -36,8 +36,17 @@
 33. Wrap section titles and other single-line labels in a Row with `Flexible`, and run the 360×640 large-text test in English, whose words are longer.
 34. Files made by `flutter create` on Windows have CRLF line endings. Convert them to LF (or match `\r?\n`) before regex edits, and check every edit landed (list the plist keys afterwards).
 35. When native code can't be compiled here (Swift on Windows), read the exact framework headers for the SDK revision in use before writing it, and say plainly that it hasn't been compiled until CI runs it.
+36. In widget tests, `pump()` after `enterText` before tapping a button that the typing enables; the button turns on only in the next frame.
+37. `scrollUntilVisible` stops as soon as the item is built, which can be below the screen (in the cache area). Call `ensureVisible` after it before tapping.
+38. Don't infer what happened from a plugin's result without reading its code: `share_plus` on the web returns "unavailable" both after the share menu and after its download fallback.
 
 ## Log
+
+### 2026-10-25: v2.1 test snags
+- **Symptom:** the add-kid test never added the kid; the reset and play-order tests tapped off screen (y 1024); a "Welcome!" finder missed "Welcome! 🌸".
+- **Root cause:** Save was still disabled in the frame right after typing; `scrollUntilVisible` stopped once the item was built below the screen; the heading includes the theme emoji.
+- **Fix:** pump after typing, `ensureVisible` after scrolling, `textContaining`.
+- **Rule:** 36, 37 (and 13/14 again for a lazy horizontal theme list).
 
 ### 2026-10-25: Half of the Info.plist edits silently didn't apply
 - **Symptom:** after a scripted edit, the plist was missing the Photos texts, the exported type and two flags, with no error.

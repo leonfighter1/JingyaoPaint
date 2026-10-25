@@ -26,7 +26,7 @@ void main() {
       final f = await exportPainting(doc, ExportFormat.png);
       expect(startsWith(f.bytes, [0x89, 0x50, 0x4E, 0x47]), isTrue);
       expect(f.mimeType, 'image/png');
-      expect(f.name, 'JingyaoPaint_20261024_1630.png');
+      expect(f.name, 'JoyPainting_20261024_1630.png');
     });
 
     test('JPG is a real JPEG', () async {

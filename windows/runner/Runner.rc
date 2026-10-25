@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.personal" "\0"
-            VALUE "FileDescription", "JingyaoPaint" "\0"
+            VALUE "FileDescription", "JoyPainting" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "JingyaoPaint" "\0"
+            VALUE "InternalName", "JoyPainting" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.personal. All rights reserved." "\0"
-            VALUE "OriginalFilename", "JingyaoPaint.exe" "\0"
-            VALUE "ProductName", "JingyaoPaint" "\0"
+            VALUE "OriginalFilename", "JoyPainting.exe" "\0"
+            VALUE "ProductName", "JoyPainting" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

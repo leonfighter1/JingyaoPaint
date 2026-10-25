@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -7,6 +8,7 @@ import '../l10n.dart';
 import '../theme/cute_theme.dart';
 import 'painting_export.dart';
 import 'print_preview_page.dart';
+import 'web_send.dart';
 
 IconData _formatIcon(ExportFormat f) => switch (f) {
       ExportFormat.png => Icons.image_rounded,
@@ -16,8 +18,8 @@ IconData _formatIcon(ExportFormat f) => switch (f) {
     };
 
 /// Asks which format to send [doc] in, then opens the system share sheet,
-/// where the user picks who or which app to send it to. On the web, where
-/// sharing files may not be supported, the file is downloaded instead.
+/// where the user picks who or which app to send it to. In a browser it
+/// goes to an email as an attachment (see [sendFromBrowser]).
 Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
   final s = S.of(context);
   final messenger = ScaffoldMessenger.of(context);
@@ -40,6 +42,11 @@ Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800)),
             ),
+            if (kIsWeb)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: Text(s.sendHintWeb),
+              ),
             for (final f in ExportFormat.values)
               ListTile(
                 leading: CircleAvatar(
@@ -60,10 +67,26 @@ Future<void> showSendSheet(BuildContext context, PaintingDoc doc) async {
   if (format == null) return;
   try {
     final file = await exportPainting(doc, format);
+    if (kIsWeb) {
+      final result = await sendFromBrowser(
+        file.bytes,
+        name: file.name,
+        mimeType: file.mimeType,
+        subject: s.mailSubject(doc.meta.name),
+        body: s.mailBody(file.name),
+      );
+      if (result == WebSendResult.downloadedForEmail) {
+        messenger.showSnackBar(SnackBar(
+          content: Text(s.mailFallback(file.name)),
+          duration: const Duration(seconds: 10),
+        ));
+      }
+      return;
+    }
     await SharePlus.instance.share(ShareParams(
       files: [XFile.fromData(file.bytes, mimeType: file.mimeType, name: file.name)],
       fileNameOverrides: [file.name],
-      title: s.appTitle,
+      title: s.appName,
       sharePositionOrigin: origin,
     ));
   } catch (e) {

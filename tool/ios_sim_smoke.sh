@@ -28,7 +28,7 @@ echo "Runtime: $RUNTIME"
 failed=0
 for kind in phone tablet; do
   type=$([ "$kind" = phone ] && echo "$PHONE" || echo "$TABLET")
-  udid=$(xcrun simctl create "JingyaoPaint-$kind" "$type" "$RUNTIME")
+  udid=$(xcrun simctl create "JoyPainting-$kind" "$type" "$RUNTIME")
   echo "== $kind: $type ($udid)"
   xcrun simctl boot "$udid"
   xcrun simctl bootstatus "$udid" -b

@@ -14,15 +14,15 @@
 		<string>en</string>
 	</array>
 	<key>CFBundleDisplayName</key>
-	<string>JingyaoPaint</string>
-	<!-- "Open in JingyaoPaint" for painting files (.jypaint). AppDelegate.swift
+	<string>JoyPainting</string>
+	<!-- "Open in JoyPainting" for painting files (.jypaint). AppDelegate.swift
 	     reads the file and lib/share/incoming_files.dart imports it as a new
 	     painting, like MainActivity.kt does on Android. -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>JingyaoPaint painting</string>
+			<string>JoyPainting painting</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -40,7 +40,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>JingyaoPaint</string>
+	<string>JoyPainting</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -58,9 +58,9 @@
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<false/>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>把画作保存到“照片”的 JingyaoPaint 相簿。Saves your paintings to the JingyaoPaint album in Photos.</string>
+	<string>Saves your paintings to the JoyPainting album in Photos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>在“照片”里建立 JingyaoPaint 相簿，用来存放你的画作。Creates the JingyaoPaint album in Photos for your paintings.</string>
+	<string>Creates the JoyPainting album in Photos for your paintings.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -107,7 +107,7 @@
 			<key>UTTypeIdentifier</key>
 			<string>com.personal.jingyaopaint.painting</string>
 			<key>UTTypeDescription</key>
-			<string>JingyaoPaint painting</string>
+			<string>JoyPainting painting</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>

@@ -1,9 +1,9 @@
-# JingyaoPaint (靖瑶的画板)
+# JoyPainting (快乐涂鸦)
 
-JingyaoPaint is a cute drawing app for Android and iOS phones and tablets, built with Flutter, with a web version too. All of them come from the same code in this repository.
+JoyPainting is a cute drawing app for Android and iOS phones and tablets, built with Flutter, with a web version too. All of them come from the same code in this repository.
 
 **Try it in a browser:** https://leonfighter1.github.io/JingyaoPaint/ (on iPhone or iPad: open it in Safari, then Share → Add to Home Screen).
-The UI is in Simplified Chinese by default, with English available in Settings.
+The app starts in English and asks for a language, a theme and the little artist's name on first launch; Simplified Chinese and English can be switched any time in Settings. Until v2.1 the app was called JingyaoPaint (靖瑶的画板); the repository and web address keep that name.
 
 What it does:
 
@@ -18,26 +18,31 @@ What it does:
   - Pinch to zoom and pan.
   - Brushes and colors live in a drawer that opens from the "画笔 · 颜色" button.
   - That button and the undo bar can be dragged to any corner of the paper.
+- **Kids**:
+  - Each kid has their own paintings; the title is their board ("Jingyao's Drawing Board").
+  - Switch kids in Settings. Adding or deleting a kid and resetting the app ask a grown-up a multiplication first (like 12 × 15).
 - **Paintings**:
-  - Autosave, and a gallery (我的画作) with dates and a year filter.
-  - Send as PNG, JPG, PDF or an editable `.jypaint` file.
+  - Autosave, and a gallery (我的画作) with names, dates and a year filter.
+  - Every painting gets a name ("My painting 1" / "我的画作 1"); rename it from the title or its gallery card.
+  - Send as PNG, JPG, PDF or an editable `.jypaint` file, named after the painting. In a browser it goes to an email as an attachment.
   - Print from an in-app preview with a big close button (Android's own print screen has none).
   - Open `.jypaint` files received from other apps.
 - **Background music**:
-  - Loops while you draw and pauses in the background. On/off in the ⋮ menu; volume and track in Settings.
+  - Plays while you draw and pauses in the background. On/off in the ⋮ menu; volume, track and play order (repeat one, in order, shuffle) in Settings.
   - Two built-in tracks, or add your own (MP3, M4A/AAC, WAV, OGG/Opus, FLAC, MIDI…).
 - **Look**:
   - 5 portable JSON themes checked against WCAG contrast.
   - 4 bundled cute fonts.
   - Works on tablets in both orientations.
 
-Package name `com.personal.jingyaopaint`, Dart package `jingyao_paint`. The version is in `pubspec.yaml` (current: **2.0.0**).
+Package name `com.personal.jingyaopaint`, Dart package `jingyao_paint`. The version is in `pubspec.yaml` (current: **2.1.0**).
 
 ## Versions
 
 | Version | Date | Highlights |
 |---|---|---|
-| **2.0.0** | 2026-10-25 | First iOS (iPhone and iPad) version. Box-select several strokes; copy, resize, turn, recolor and fade the selection; looping background music (built-in or your own, with volume); print preview with an easy way out |
+| **2.1.0** | 2026-10-25 | Renamed JoyPainting (快乐涂鸦). First-start setup (language, theme, name), several kids with their own paintings, painting names and renaming, music play order, email sending from the web, texts that fit each device, grown-up check for adding/deleting kids and resetting |
+| 2.0.0 | 2026-10-25 | First iOS (iPhone and iPad) version. Box-select several strokes; copy, resize, turn, recolor and fade the selection; looping background music (built-in or your own, with volume); print preview with an easy way out |
 | 1.6.0 | 2026-10-25 | Draggable corner controls, move tool, round eraser |
 | 1.5.0 | 2026-10-25 | Tablet and landscape layouts, pinch zoom, tools drawer, smaller APKs |
 | 1.4.0 | 2026-10-24 | Send, print, import `.jypaint`, text tool, undo for every edit; renamed to JingyaoPaint |
@@ -179,7 +184,7 @@ powershell -ExecutionPolicy Bypass -File tool\build_apk.ps1             # one sm
 powershell -ExecutionPolicy Bypass -File tool\build_apk.ps1 -Universal  # one big APK for every device
 ```
 
-APKs land in `dist\` as `JingyaoPaint-v<version>-<abi>.apk`:
+APKs land in `dist\` as `JoyPainting-v<version>-<abi>.apk`:
 
 - **arm64**: almost every phone and tablet.
 - **armv7**: old 32-bit phones.
@@ -190,7 +195,7 @@ Builds are obfuscated. Crash symbols go to `build\symbols\<version>`; keep them 
 Install on a running emulator or a connected phone:
 
 ```powershell
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r dist\JingyaoPaint-v2.0.0-x86_64.apk
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r dist\JoyPainting-v2.0.0-x86_64.apk
 ```
 
 To release a new version:
@@ -220,15 +225,15 @@ iOS builds need macOS and Xcode, so they run on GitHub's Macs (free for this pub
 
 The screenshots and app logs are under the run's **Artifacts → ios-screenshots**. The builds are under **Artifacts → ios-builds**:
 
-- `JingyaoPaint-v<version>-ios-unsigned.ipa`: for iPhone and iPad. It is unsigned, so it has to be signed before it installs: with an Apple Developer account, or for personal use with a free Apple ID through a sideloading tool (the app then expires after 7 days).
-- `JingyaoPaint-v<version>-ios-simulator.zip`: for a Mac's Simulator, or a browser simulator such as Appetize, where you can try it from Windows.
+- `JoyPainting-v<version>-ios-unsigned.ipa`: for iPhone and iPad. It is unsigned, so it has to be signed before it installs: with an Apple Developer account, or for personal use with a free Apple ID through a sideloading tool (the app then expires after 7 days).
+- `JoyPainting-v<version>-ios-simulator.zip`: for a Mac's Simulator, or a browser simulator such as Appetize, where you can try it from Windows.
 
 Artifacts are kept for 90 days and need a GitHub login to download.
 
 The iOS app needs iOS 15 or later. Its bundle ID `com.personal.jingyaopaint` matches the Android package. iOS-specific parts:
 
 - `ios/Runner/Info.plist`: Chinese and English localizations, Photos permission texts and the `.jypaint` document type.
-- `ios/Runner/AppDelegate.swift`: "Open in JingyaoPaint" for `.jypaint` files, on the same channel as Android's `MainActivity.kt`.
+- `ios/Runner/AppDelegate.swift`: "Open in JoyPainting" for `.jypaint` files, on the same channel as Android's `MainActivity.kt`.
 - Background music uses the "ambient" audio session: the silent switch mutes it, and it plays along with other apps' audio.
 - The app icon comes from `tool/make_icons.ps1`.
 

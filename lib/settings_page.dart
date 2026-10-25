@@ -4,14 +4,17 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import 'app_theme.dart';
+import 'family.dart';
 import 'l10n.dart';
 import 'music/music_library.dart';
 import 'settings.dart';
 import 'theme/cute_font.dart';
 import 'theme/cute_theme.dart';
 import 'theme/theme_spec.dart';
+import 'widgets/name_dialog.dart';
+import 'widgets/parent_gate.dart';
 
-const appVersion = '2.0.0';
+const appVersion = '2.1.0';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({
@@ -19,6 +22,7 @@ class SettingsPage extends StatelessWidget {
     required this.settings,
     required this.themes,
     required this.music,
+    required this.family,
   });
 
   static const maxContentWidth = 760.0;
@@ -29,8 +33,41 @@ class SettingsPage extends StatelessWidget {
   final AppSettings settings;
   final List<ThemeSpec> themes;
   final MusicLibrary music;
+  final Family family;
 
   static const _languageNames = {'zh': '简体中文', 'en': 'English'};
+
+  /// Starts over, after the grown-up check and a last confirmation. The
+  /// app then shows the first-start setup.
+  Future<void> _confirmReset(BuildContext context) async {
+    final s = S.of(context);
+    final navigator = Navigator.of(context);
+    if (!await askGrownUp(context) || !context.mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s.resetApp),
+        content: Text(s.resetAppBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(s.reset),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    navigator.popUntil((route) => route.isFirst);
+    await family.resetAll();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +91,7 @@ class SettingsPage extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               itemCount: themes.length,
               separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, i) => _ThemeCard(
+              itemBuilder: (context, i) => ThemeCard(
                 spec: themes[i],
                 name: themes[i].name(language),
                 selected: themes[i].id == cute.spec.id,
@@ -79,6 +116,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 24),
+          _SectionTitle(icon: Icons.face_rounded, text: s.kids),
+          _KidsSettings(settings: settings, family: family),
           const SizedBox(height: 24),
           _SectionTitle(icon: Icons.translate_rounded, text: s.language),
           Card(
@@ -111,8 +151,9 @@ class SettingsPage extends StatelessWidget {
                     child: Image.asset('assets/icon/logo.png',
                         width: 44, excludeFromSemantics: true),
                   ),
-                  title: Text(s.appTitle),
-                  subtitle: Text('${s.version(appVersion)}\n${s.aboutBody}'),
+                  title: Text(s.boardTitle(settings.kidName)),
+                  subtitle: Text(
+                      '${s.version(appVersion)} · ${s.runsOn}\n${s.aboutBody}'),
                   isThreeLine: true,
                 ),
                 ListTile(
@@ -121,11 +162,22 @@ class SettingsPage extends StatelessWidget {
                   title: Text(s.licenses),
                   onTap: () => showLicensePage(
                     context: context,
-                    applicationName: s.appTitle,
+                    applicationName: s.appName,
                     applicationVersion: appVersion,
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Card(
+            child: ListTile(
+              leading: Icon(Icons.restart_alt_rounded,
+                  color: Theme.of(context).colorScheme.error),
+              title: Text(s.resetApp,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              subtitle: Text(s.resetAppBody),
+              onTap: () => _confirmReset(context),
             ),
           ),
         ],
@@ -136,8 +188,9 @@ class SettingsPage extends StatelessWidget {
 
 /// A preview of one theme: its header gradient, emoji, name and nav colors,
 /// with text in that theme's own contrast-checked colors.
-class _ThemeCard extends StatelessWidget {
-  const _ThemeCard({
+class ThemeCard extends StatelessWidget {
+  const ThemeCard({
+    super.key,
     required this.spec,
     required this.name,
     required this.selected,
@@ -431,6 +484,33 @@ class _MusicSettings extends StatelessWidget {
                   ],
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(s.musicPlayOrder,
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    for (final mode in MusicMode.values)
+                      ChoiceChip(
+                        avatar: Icon(
+                          switch (mode) {
+                            MusicMode.repeatOne => Icons.repeat_one_rounded,
+                            MusicMode.sequence => Icons.repeat_rounded,
+                            MusicMode.shuffle => Icons.shuffle_rounded,
+                          },
+                          size: 18,
+                        ),
+                        label: Text(s.musicModeName(mode)),
+                        selected: settings.musicMode == mode,
+                        showCheckmark: false,
+                        onSelected: (_) => settings.musicMode = mode,
+                      ),
+                  ],
+                ),
+              ),
               const Divider(height: 1),
               for (final track in library.tracks)
                 ListTile(
@@ -465,6 +545,137 @@ class _MusicSettings extends StatelessWidget {
                 title: Text(s.uploadMusic),
                 subtitle: Text(s.musicFormats(apple: MusicLibrary.isApple)),
                 onTap: () => _upload(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The kids: who's drawing now (tap another to switch), their names, and
+/// adding or deleting kids (grown-ups only).
+class _KidsSettings extends StatelessWidget {
+  const _KidsSettings({required this.settings, required this.family});
+
+  final AppSettings settings;
+  final Family family;
+
+  Future<void> _rename(BuildContext context, Kid kid) async {
+    final s = S.of(context);
+    final name = await showNameDialog(
+      context,
+      title: s.changeKidName,
+      initial: kid.name,
+      label: s.kidNameLabel,
+      hint: s.kidNameHint,
+      allowEmpty: true,
+    );
+    if (name != null) settings.renameKid(kid.id, name);
+  }
+
+  Future<void> _add(BuildContext context) async {
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (!await askGrownUp(context) || !context.mounted) return;
+    final name = await showNameDialog(
+      context,
+      title: s.addKid,
+      initial: '',
+      label: s.kidNameLabel,
+      hint: s.kidNameHint,
+    );
+    if (name == null) return;
+    final kid = await family.addKid(name);
+    messenger.showSnackBar(SnackBar(content: Text(s.switchedTo(kid.name))));
+  }
+
+  Future<void> _delete(BuildContext context, Kid kid) async {
+    final s = S.of(context);
+    if (!await askGrownUp(context) || !context.mounted) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(s.deleteKidTitle(kid.name.isEmpty ? s.noKidName : kid.name)),
+        content: Text(s.deleteKidBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(s.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(s.delete),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await family.removeKid(kid.id);
+  }
+
+  Future<void> _switch(BuildContext context, Kid kid) async {
+    final s = S.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (await family.switchTo(kid.id)) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(s.switchedTo(kid.name.isEmpty ? s.noKidName : kid.name))));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final cute = CuteTheme.of(context);
+    return ListenableBuilder(
+      listenable: settings,
+      builder: (context, _) {
+        final current = settings.currentKid.id;
+        final kids = settings.kids;
+        return Card(
+          child: Column(
+            children: [
+              for (final kid in kids)
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: kid.id == current
+                        ? cute.spec.primary
+                        : cute.spec.primary.withValues(alpha: 0.15),
+                    foregroundColor: kid.id == current
+                        ? cute.onColor(cute.spec.primary)
+                        : cute.ink,
+                    child: Text(kid.name.isEmpty ? '?' : kid.name.characters.first),
+                  ),
+                  title: Text(kid.name.isEmpty ? s.noKidName : kid.name),
+                  subtitle: kid.id == current ? Text(s.usingNow) : null,
+                  selected: kid.id == current,
+                  onTap: () => _switch(context, kid),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: s.changeKidName,
+                        icon: const Icon(Icons.edit_rounded),
+                        onPressed: () => _rename(context, kid),
+                      ),
+                      if (kids.length > 1)
+                        IconButton(
+                          tooltip: s.delete,
+                          icon: const Icon(Icons.delete_outline_rounded),
+                          onPressed: () => _delete(context, kid),
+                        ),
+                    ],
+                  ),
+                ),
+              ListTile(
+                leading: Icon(Icons.person_add_alt_1_rounded,
+                    color: cute.spec.primary),
+                title: Text(s.addKid),
+                onTap: () => _add(context),
               ),
             ],
           ),

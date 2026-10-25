@@ -1,11 +1,11 @@
 {
-    "name": "JingyaoPaint",
-    "short_name": "JingyaoPaint",
+    "name": "JoyPainting · 快乐涂鸦",
+    "short_name": "JoyPainting",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFF0F5",
     "theme_color": "#FFF0F5",
-    "description": "靖瑶的画板：给小朋友的画画 App · JingyaoPaint, a drawing app for kids",
+    "description": "快乐涂鸦：给小朋友的画画 App · JoyPainting, a drawing app for kids",
     "lang": "zh-Hans",
     "prefer_related_applications": false,
     "icons": [

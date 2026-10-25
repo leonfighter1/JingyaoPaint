@@ -1,0 +1,6 @@
+/* Chinese names and texts for the iOS system: the home screen name and the
+   Photos permission prompts. English is in Info.plist. */
+"CFBundleDisplayName" = "快乐涂鸦";
+"CFBundleName" = "快乐涂鸦";
+"NSPhotoLibraryAddUsageDescription" = "把画作保存到“照片”的“快乐涂鸦”相簿。";
+"NSPhotoLibraryUsageDescription" = "在“照片”里建立“快乐涂鸦”相簿，用来存放你的画作。";

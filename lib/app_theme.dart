@@ -145,14 +145,29 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 /// The app logo and theme emoji next to the title.
 class AppLogoTitle extends StatelessWidget {
-  const AppLogoTitle({super.key, required this.text});
+  const AppLogoTitle({
+    super.key,
+    required this.text,
+    this.subtitle,
+    this.onTap,
+    this.tapLabel,
+  });
 
   final String text;
+
+  /// A smaller second line (the open painting's name).
+  final String? subtitle;
+
+  /// Makes the title a button (renaming the painting); [tapLabel] is what
+  /// screen readers say it does.
+  final VoidCallback? onTap;
+  final String? tapLabel;
 
   @override
   Widget build(BuildContext context) {
     final emoji = CuteTheme.of(context).spec.emoji;
-    return Row(
+    final sub = subtitle;
+    final title = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         ClipRRect(
@@ -161,12 +176,54 @@ class AppLogoTitle extends StatelessWidget {
               width: 32, height: 32, excludeFromSemantics: true),
         ),
         const SizedBox(width: 10),
-        Flexible(child: Text(text, overflow: TextOverflow.ellipsis)),
+        Flexible(
+          child: sub == null
+              ? Text(text, overflow: TextOverflow.ellipsis)
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            sub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DefaultTextStyle.of(context).style.copyWith(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 4),
+                          const Icon(Icons.edit_rounded, size: 14),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+        ),
         if (emoji.isNotEmpty) ...[
           const SizedBox(width: 6),
           ExcludeSemantics(child: Text(emoji)),
         ],
       ],
+    );
+    if (onTap == null) return title;
+    return Semantics(
+      button: true,
+      hint: tapLabel,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        // At least 48 tall, like every other button.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(alignment: Alignment.centerLeft, widthFactor: 1, child: title),
+        ),
+      ),
     );
   }
 }

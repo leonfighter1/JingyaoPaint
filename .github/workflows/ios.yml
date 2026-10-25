@@ -62,8 +62,8 @@ jobs:
           OUT="$PWD/build/ios_out"
           mkdir -p "$OUT/Payload"
           cp -R build/ios/iphoneos/Runner.app "$OUT/Payload/"
-          (cd "$OUT" && zip -qry "JingyaoPaint-v$VERSION-ios-unsigned.ipa" Payload && rm -rf Payload)
-          (cd build/ios/iphonesimulator && zip -qry "$OUT/JingyaoPaint-v$VERSION-ios-simulator.zip" Runner.app)
+          (cd "$OUT" && zip -qry "JoyPainting-v$VERSION-ios-unsigned.ipa" Payload && rm -rf Payload)
+          (cd build/ios/iphonesimulator && zip -qry "$OUT/JoyPainting-v$VERSION-ios-simulator.zip" Runner.app)
           ls -l "$OUT"
 
       - uses: actions/upload-artifact@v6

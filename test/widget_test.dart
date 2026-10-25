@@ -34,6 +34,7 @@ Future<TestApp> pumpApp(
     session: app.session,
     themes: _themes!,
     music: app.music,
+    family: app.family,
   ));
   await tester.pumpAndSettle();
   return app;
@@ -963,7 +964,7 @@ void main() {
 
     expect(find.text('Canvas'), findsOneWidget);
     expect(find.text('My Paintings'), findsOneWidget);
-    expect(find.text('JingyaoPaint'), findsOneWidget);
+    expect(find.text("靖瑶's Drawing Board"), findsOneWidget);
     expect(find.text('Brushes · Colors'), findsOneWidget);
     await tester.tap(find.byKey(CanvasPageState.toolsButtonKey));
     await tester.pumpAndSettle();

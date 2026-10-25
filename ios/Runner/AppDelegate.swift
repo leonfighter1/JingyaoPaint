@@ -18,7 +18,7 @@ import UIKit
   }
 }
 
-/// Passes painting files opened from other apps ("Open in JingyaoPaint" from
+/// Passes painting files opened from other apps ("Open in JoyPainting" from
 /// Files, AirDrop or a chat app) to Flutter over the `jingyao/open_file`
 /// channel, the same way MainActivity.kt does on Android. See
 /// lib/share/incoming_files.dart.

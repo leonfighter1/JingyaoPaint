@@ -29,7 +29,7 @@ abstract final class PaintingFile {
           json['format'] != _format ||
           (json['version'] as num? ?? 0) > version ||
           json['painting'] is! Map) {
-        throw const FormatException('Not a JingyaoPaint painting');
+        throw const FormatException('Not a JoyPainting painting');
       }
       return PaintingDoc.fromJson(
           (json['painting'] as Map).cast<String, Object?>());

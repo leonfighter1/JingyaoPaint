@@ -8,6 +8,7 @@ import 'drawing/drawing_controller.dart';
 import 'drawing/stroke.dart';
 import 'gallery/painting_file.dart';
 import 'gallery/painting_store.dart';
+import 'l10n.dart';
 import 'settings.dart';
 
 /// Renders a thumbnail for the gallery. Swappable so widget tests can skip
@@ -39,7 +40,8 @@ class PaintingSession extends ChangeNotifier {
     drawing.addListener(_onDrawingChanged);
   }
 
-  final PaintingStore store;
+  /// The current kid's paintings (see [switchStore]).
+  PaintingStore store;
   final AppSettings settings;
   final Thumbnailer thumbnailer;
   final Duration autosaveDelay;
@@ -47,6 +49,9 @@ class PaintingSession extends ChangeNotifier {
 
   String id;
   DateTime createdAt;
+
+  /// The open painting's name, like "My painting 1".
+  String name = '';
 
   /// The open painting's paper size, in canvas units: set by the canvas on
   /// every layout to the space available, but never smaller than what's
@@ -77,16 +82,69 @@ class PaintingSession extends ChangeNotifier {
     return _lastId.toString();
   }
 
-  /// Reopens the painting that was open when the app last closed.
+  /// Reopens the painting that was open when the app last closed, or names
+  /// the blank page if there's none. Also numbers paintings saved before
+  /// v2.1, which have no names.
   Future<void> restoreLast() async {
+    await store.nameUnnamed(_s.defaultPaintingName);
     final lastId = settings.lastPaintingId;
-    if (lastId == null) return;
-    try {
-      final doc = await store.load(lastId);
-      if (doc != null) _show(doc);
-    } catch (e) {
-      debugPrint('Could not reopen painting $lastId: $e');
+    if (lastId != null) {
+      try {
+        final doc = await store.load(lastId);
+        if (doc != null) {
+          _show(doc);
+          return;
+        }
+      } catch (e) {
+        debugPrint('Could not reopen painting $lastId: $e');
+      }
     }
+    name = await _nextName();
+    notifyListeners();
+  }
+
+  /// Texts in the app's language, for default names.
+  S get _s => S(settings.locale.value.languageCode);
+
+  /// "My painting N" for the first N not taken yet, counting on from how
+  /// many paintings there are.
+  Future<String> _nextName() async {
+    final paintings = await store.list();
+    final taken = {for (final m in paintings) m.name};
+    var n = paintings.length + 1;
+    while (taken.contains(_s.defaultPaintingName(n))) {
+      n++;
+    }
+    return _s.defaultPaintingName(n);
+  }
+
+  /// Renames a painting (the open one, or one in the gallery). Blank names
+  /// are ignored.
+  Future<void> rename(String paintingId, String newName) async {
+    final clean = newName.trim();
+    if (clean.isEmpty) return;
+    if (paintingId == id) {
+      name = clean;
+      notifyListeners();
+      // A blank page isn't stored yet; it keeps the name for its first save.
+      if (!_persisted) return;
+    }
+    await store.rename(paintingId, clean);
+  }
+
+  /// Saves the open painting and switches to another kid's paintings,
+  /// reopening the one that kid last had open. With `saveFirst: false` the
+  /// open painting is dropped (the app is being reset).
+  Future<bool> switchStore(PaintingStore other, {bool saveFirst = true}) async {
+    _autosave?.cancel();
+    if (saveFirst && !await save()) return false;
+    await _lastSave;
+    store = other;
+    _reset(_newId(), DateTime.now(), const [], settings.paper);
+    _persisted = false;
+    await restoreLast();
+    notifyListeners();
+    return true;
   }
 
   void _onDrawingChanged() {
@@ -118,12 +176,15 @@ class PaintingSession extends ChangeNotifier {
     final paper = drawing.paper;
     final size = canvasSize.isEmpty ? _boundsOf(strokes) : canvasSize;
     final paintingId = id;
+    if (name.isEmpty) name = await _nextName();
+    final paintingName = name;
     try {
       final thumbnail = await thumbnailer(strokes, size, paper);
       await store.save(
         PaintingDoc(
           meta: PaintingMeta(
             id: paintingId,
+            name: paintingName,
             createdAt: createdAt,
             updatedAt: DateTime.now(),
             width: size.width,
@@ -156,6 +217,7 @@ class PaintingSession extends ChangeNotifier {
     _reset(_newId(), DateTime.now(), const [], settings.paper);
     _persisted = false;
     settings.lastPaintingId = null;
+    name = await _nextName();
     notifyListeners();
     return true;
   }
@@ -167,6 +229,7 @@ class PaintingSession extends ChangeNotifier {
     return PaintingDoc(
       meta: PaintingMeta(
         id: id,
+        name: name,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
         width: size.width,
@@ -193,6 +256,9 @@ class PaintingSession extends ChangeNotifier {
     final copy = PaintingDoc(
       meta: PaintingMeta(
         id: _newId(),
+        name: incoming.meta.name.isNotEmpty
+            ? incoming.meta.name
+            : await _nextName(),
         createdAt: incoming.meta.createdAt,
         updatedAt: DateTime.now(),
         width: incoming.meta.width,
@@ -238,11 +304,16 @@ class PaintingSession extends ChangeNotifier {
     }
     await _lastSave;
     await store.delete(paintingId);
+    if (paintingId != id && !_persisted && name.isEmpty) {
+      name = await _nextName();
+      notifyListeners();
+    }
   }
 
   void _show(PaintingDoc doc) {
     _reset(doc.meta.id, doc.meta.createdAt, doc.strokes, doc.paper,
         size: Size(doc.meta.width, doc.meta.height));
+    name = doc.meta.name;
     _persisted = true;
     settings.lastPaintingId = id;
     notifyListeners();
@@ -254,6 +325,7 @@ class PaintingSession extends ChangeNotifier {
       String newId, DateTime created, List<Stroke> strokes, Color paper,
       {Size size = Size.zero}) {
     id = newId;
+    name = '';
     createdAt = created;
     canvasSize = size.isEmpty ? Size.zero : size;
     drawing.load(strokes, paper: paper);

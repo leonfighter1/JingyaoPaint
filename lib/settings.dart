@@ -6,11 +6,53 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'drawing/stroke.dart';
 import 'widgets/corner_float.dart';
 
+/// One child using the app. Each kid has their own paintings.
+@immutable
+class Kid {
+  const Kid(this.id, this.name);
+
+  final String id;
+  final String name;
+
+  /// The first kid keeps the storage paintings had before kids existed.
+  static const firstId = 'main';
+
+  /// Put before each of this kid's stored item names (see
+  /// `PrefixedStoreBackend`).
+  String get storePrefix => id == firstId ? '' : 'kid-$id-';
+
+  Kid withName(String name) => Kid(id, name);
+
+  Map<String, Object?> toJson() => {'id': id, 'name': name};
+
+  static Kid? fromJson(Object? json) => switch (json) {
+        {'id': final String id, 'name': final String name} => Kid(id, name),
+        _ => null,
+      };
+}
+
+/// How background music moves on when a track ends.
+enum MusicMode {
+  /// The same track again and again.
+  repeatOne,
+
+  /// Every track in list order, then from the top.
+  sequence,
+
+  /// A random other track each time.
+  shuffle;
+
+  static MusicMode fromName(String? name) =>
+      values.firstWhere((m) => m.name == name, orElse: () => repeatOne);
+}
+
 /// User choices that survive app restarts: language, theme, brush, colors,
-/// sizes, opacity, stamp shape, mirror mode and paper.
+/// sizes, opacity, stamp shape, mirror mode, paper, music and the kids.
 class AppSettings extends ChangeNotifier {
   AppSettings(this._prefs)
-      : locale = ValueNotifier(Locale(_prefs.getString(_kLanguage) ?? 'zh')),
+      : locale = ValueNotifier(
+            Locale(_prefs.getString(_kLanguage) ?? _defaultLanguage(_prefs))),
+        onboarded = ValueNotifier(_prefs.getBool(_kOnboarded) ?? false),
         themeId = ValueNotifier(_prefs.getString(_kTheme) ?? defaultThemeId),
         fontId = ValueNotifier(_prefs.getString(_kFont) ?? defaultFontId),
         _shape = ShapeKind.fromName(_prefs.getString(_kShape)),
@@ -27,6 +69,9 @@ class AppSettings extends ChangeNotifier {
         _musicOn = _prefs.getBool(_kMusicOn) ?? false,
         _musicVolume = _prefs.getDouble(_kMusicVolume) ?? defaultMusicVolume,
         _musicTrack = _prefs.getString(_kMusicTrack) ?? defaultMusicTrack,
+        _musicMode = MusicMode.fromName(_prefs.getString(_kMusicMode)),
+        _kids = _readKids(_prefs),
+        _currentKidId = _prefs.getString(_kCurrentKid) ?? Kid.firstId,
         _customColors = [
           for (final v in _prefs.getStringList(_kCustomColors) ?? const [])
             if (int.tryParse(v) case final int argb) Color(argb),
@@ -34,6 +79,26 @@ class AppSettings extends ChangeNotifier {
 
   static Future<AppSettings> load() async =>
       AppSettings(await SharedPreferences.getInstance());
+
+  /// English for a new install. Versions before 2.1 were Chinese unless
+  /// changed, so an existing install (any saved setting) stays Chinese.
+  static String _defaultLanguage(SharedPreferences prefs) =>
+      prefs.getKeys().isEmpty ? 'en' : 'zh';
+
+  static List<Kid> _readKids(SharedPreferences prefs) {
+    final raw = prefs.getString(_kKids);
+    if (raw != null) {
+      try {
+        final kids = [
+          for (final k in jsonDecode(raw) as List) ?Kid.fromJson(k),
+        ];
+        if (kids.isNotEmpty) return kids;
+      } catch (_) {}
+    }
+    // This app was made for 靖瑶: an install from before kids existed keeps
+    // her name, so the title stays the same.
+    return [Kid(Kid.firstId, prefs.getKeys().isEmpty ? '' : '靖瑶')];
+  }
 
   static const supportedLanguages = ['zh', 'en'];
   static const defaultThemeId = 'sakura';
@@ -61,6 +126,10 @@ class AppSettings extends ChangeNotifier {
   static const _kMusicOn = 'musicOn';
   static const _kMusicVolume = 'musicVolume';
   static const _kMusicTrack = 'musicTrack';
+  static const _kMusicMode = 'musicMode';
+  static const _kOnboarded = 'onboarded';
+  static const _kKids = 'kids';
+  static const _kCurrentKid = 'currentKid';
   static String _kSize(BrushType b) => 'size.${b.name}';
   static String _kOpacity(BrushType b) => 'opacity.${b.name}';
 
@@ -71,6 +140,92 @@ class AppSettings extends ChangeNotifier {
   final ValueNotifier<Locale> locale;
   final ValueNotifier<String> themeId;
   final ValueNotifier<String> fontId;
+
+  /// Whether the first-start setup (language, theme, name) is done.
+  final ValueNotifier<bool> onboarded;
+
+  set onboardingDone(bool value) {
+    _prefs.setBool(_kOnboarded, value);
+    onboarded.value = value;
+  }
+
+  List<Kid> _kids;
+  String _currentKidId;
+
+  List<Kid> get kids => List.unmodifiable(_kids);
+
+  /// The kid whose paintings are shown.
+  Kid get currentKid =>
+      _kids.firstWhere((k) => k.id == _currentKidId, orElse: () => _kids.first);
+
+  /// The current kid's name ("" when not given), shown in the title.
+  String get kidName => currentKid.name;
+
+  void _saveKids() => _prefs.setString(
+      _kKids, jsonEncode([for (final k in _kids) k.toJson()]));
+
+  /// Switches to [id]'s paintings (see `Family`).
+  set currentKidId(String id) {
+    if (!_kids.any((k) => k.id == id) || id == _currentKidId) return;
+    _currentKidId = id;
+    _prefs.setString(_kCurrentKid, id);
+    notifyListeners();
+  }
+
+  Kid addKid(String name) {
+    final kid = Kid(DateTime.now().microsecondsSinceEpoch.toRadixString(36),
+        name.trim());
+    _kids.add(kid);
+    _saveKids();
+    notifyListeners();
+    return kid;
+  }
+
+  void renameKid(String id, String name) {
+    final i = _kids.indexWhere((k) => k.id == id);
+    if (i < 0) return;
+    _kids[i] = _kids[i].withName(name.trim());
+    _saveKids();
+    notifyListeners();
+  }
+
+  /// Removes [id] from the list (its paintings are deleted by `Family`).
+  /// The last kid can't be removed; reset the app instead.
+  void removeKid(String id) {
+    if (_kids.length < 2) return;
+    _kids.removeWhere((k) => k.id == id);
+    _prefs.remove('$_kLastPainting.$id');
+    _saveKids();
+    if (_currentKidId == id) currentKidId = _kids.first.id;
+    notifyListeners();
+  }
+
+  /// Forgets every setting and kid, as on a fresh install: English, the
+  /// default theme, and the first-start setup again.
+  Future<void> resetAll() async {
+    await _prefs.clear();
+    _shape = null;
+    _fill = false;
+    _undoCorner = Corner.topRight;
+    _toolsCorner = Corner.bottomRight;
+    _brush = BrushType.pen;
+    _color = Colors.black;
+    _stamp = StampShape.heart;
+    _mirror = false;
+    _paper = const Color(0xFFFFFFFF);
+    _musicOn = false;
+    _musicVolume = defaultMusicVolume;
+    _musicTrack = defaultMusicTrack;
+    _musicMode = MusicMode.repeatOne;
+    _customColors.clear();
+    _kids = [const Kid(Kid.firstId, '')];
+    _currentKidId = Kid.firstId;
+    locale.value = const Locale('en');
+    themeId.value = defaultThemeId;
+    fontId.value = defaultFontId;
+    onboarded.value = false;
+    notifyListeners();
+  }
 
   ShapeKind? _shape;
   bool _fill;
@@ -124,7 +279,12 @@ class AppSettings extends ChangeNotifier {
   double get opacity => opacityFor(_brush);
   double opacityFor(BrushType b) => _prefs.getDouble(_kOpacity(b)) ?? 1;
 
-  String? get lastPaintingId => _prefs.getString(_kLastPainting);
+  /// The painting the current kid last had open.
+  String? get lastPaintingId => _prefs.getString(_lastPaintingKey);
+
+  String get _lastPaintingKey => _currentKidId == Kid.firstId
+      ? _kLastPainting
+      : '$_kLastPainting.$_currentKidId';
 
   set language(String code) {
     if (!supportedLanguages.contains(code)) return;
@@ -218,6 +378,16 @@ class AppSettings extends ChangeNotifier {
   bool _musicOn;
   double _musicVolume;
   String _musicTrack;
+  MusicMode _musicMode;
+
+  /// What happens when a track ends.
+  MusicMode get musicMode => _musicMode;
+
+  set musicMode(MusicMode value) {
+    _musicMode = value;
+    _prefs.setString(_kMusicMode, value.name);
+    notifyListeners();
+  }
 
   /// Whether background music plays while the app is open.
   bool get musicOn => _musicOn;
@@ -248,9 +418,9 @@ class AppSettings extends ChangeNotifier {
 
   set lastPaintingId(String? id) {
     if (id == null) {
-      _prefs.remove(_kLastPainting);
+      _prefs.remove(_lastPaintingKey);
     } else {
-      _prefs.setString(_kLastPainting, id);
+      _prefs.setString(_lastPaintingKey, id);
     }
   }
 
@@ -268,6 +438,7 @@ class AppSettings extends ChangeNotifier {
   @override
   void dispose() {
     locale.dispose();
+    onboarded.dispose();
     themeId.dispose();
     fontId.dispose();
     super.dispose();

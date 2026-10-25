@@ -18,6 +18,7 @@ import '../share/share_actions.dart';
 import '../theme/cute_theme.dart';
 import '../widgets/corner_float.dart';
 import '../widgets/drop_menu.dart';
+import '../widgets/name_dialog.dart';
 import 'drawing_controller.dart';
 import 'stroke.dart';
 import 'text_editor.dart';
@@ -872,6 +873,11 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
         title: s.menuPainting,
         items: [
           DropMenuItem(
+            icon: Icons.drive_file_rename_outline_rounded,
+            label: s.rename,
+            onSelected: _renamePainting,
+          ),
+          DropMenuItem(
             icon: Icons.delete_outline_rounded,
             label: s.deletePainting,
             danger: true,
@@ -890,6 +896,16 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
         ],
       ),
     ]);
+  }
+
+  Future<void> _renamePainting() async {
+    final s = S.of(context);
+    final name = await showNameDialog(
+      context,
+      title: s.renameTitle,
+      initial: widget.session.name,
+    );
+    if (name != null) await widget.session.rename(widget.session.id, name);
   }
 
   /// Saves right now (autosave would too, a moment later) and says so.
@@ -964,7 +980,16 @@ class CanvasPageState extends State<CanvasPage> with TickerProviderStateMixin {
     final cute = CuteTheme.of(context);
     return Scaffold(
       appBar: GradientAppBar(
-        title: AppLogoTitle(text: s.appTitle),
+        // The kid's board, and the open painting's name (tap to rename).
+        title: ListenableBuilder(
+          listenable: widget.session,
+          builder: (context, _) => AppLogoTitle(
+            text: s.boardTitle(_settings.kidName),
+            subtitle: widget.session.name,
+            onTap: _renamePainting,
+            tapLabel: s.rename,
+          ),
+        ),
         // The painting's own actions, one tap away; everything else lives in
         // the ⋮ menu. Undo and redo float at the paper's top left.
         actions: [

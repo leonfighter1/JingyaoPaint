@@ -1,4 +1,12 @@
-# Dev log: JingyaoPaint (靖瑶的画板)
+# Dev log: JoyPainting (快乐涂鸦), formerly JingyaoPaint
+
+## 2026-10-25: v2.1.0 (JoyPainting, first-start setup, kids, painting names)
+- Asked: first-start language/theme (English default), email attachment from the web, default painting names with rename, kid's name in Settings and setup, device-specific texts, music play order, add/delete kids and reset behind a multiplication question; then rename the app JoyPainting / 快乐涂鸦 and a web address that ignores capitals.
+- Interpreted: kids each get their own paintings; the grown-up check guards add, delete and reset (not renaming); installs from before v2.1 see the setup once, keeping Chinese and 靖瑶; internal IDs keep "Jingyao" so updates install in place.
+- Done: see FEATURES v2.1.0. Web address: GitHub Pages matches project paths exactly (`/jingyaopaint/` was a 404), so a root site repo `leonfighter1.github.io` was prepared locally (404.html redirects any capitalization of `/jingyaopaint` or `/joypainting`; the front page opens the app). It needs the user to create that repository.
+- Mistakes: test-side only (MISTAKES rules 36 to 38): Save disabled until a frame after typing, scrollUntilVisible stopping at items built in the cache, `share_plus` on the web not telling a share from a download.
+- Harness: PASS (analyze 0 issues, 209 tests, build web ok).
+- Not tested: the web email path in real browsers, the iOS Chinese name and prompts (need the iOS workflow and a device), the setup and kids on a real phone.
 
 ## 2026-10-25: Web version on GitHub Pages
 - Why: without a paid Apple account, an iOS build only installs for 7 days at a time; the web version added to the home screen has no signing or expiry. The user chose GitHub's free address over a custom domain or another host for now.

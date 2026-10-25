@@ -29,14 +29,14 @@ $symbols = Join-Path $Root "build\symbols\$version"
 if ($Universal) {
     flutter build apk --release --obfuscate --split-debug-info=$symbols
     if ($LASTEXITCODE -ne 0) { Write-Output 'BUILD FAILED'; exit 1 }
-    $apks = @{ 'app-release.apk' = "JingyaoPaint-v$version.apk" }
+    $apks = @{ 'app-release.apk' = "JoyPainting-v$version.apk" }
 } else {
     flutter build apk --release --split-per-abi --obfuscate --split-debug-info=$symbols
     if ($LASTEXITCODE -ne 0) { Write-Output 'BUILD FAILED'; exit 1 }
     $apks = [ordered]@{
-        'app-arm64-v8a-release.apk'   = "JingyaoPaint-v$version-arm64.apk"
-        'app-armeabi-v7a-release.apk' = "JingyaoPaint-v$version-armv7.apk"
-        'app-x86_64-release.apk'      = "JingyaoPaint-v$version-x86_64.apk"
+        'app-arm64-v8a-release.apk'   = "JoyPainting-v$version-arm64.apk"
+        'app-armeabi-v7a-release.apk' = "JoyPainting-v$version-armv7.apk"
+        'app-x86_64-release.apk'      = "JoyPainting-v$version-x86_64.apk"
     }
 }
 

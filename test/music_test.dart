@@ -158,11 +158,13 @@ void main() {
       await pumpApp(tester, app: app);
       await openSettings(tester);
       await scrollToMusic(tester);
-      expect(find.text('背景音乐'), findsOneWidget);
+      expect(find.text('播放背景音乐'), findsOneWidget);
       expect(find.text('阳光散步'), findsOneWidget);
       expect(find.text('my song.mp3'), findsOneWidget);
       expect(find.textContaining('MP3'), findsOneWidget, reason: 'formats');
 
+      await tester.ensureVisible(find.widgetWithText(SwitchListTile, '播放背景音乐'));
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(SwitchListTile, '播放背景音乐'));
       await tester.pumpAndSettle();
       expect(app.settings.musicOn, isTrue);

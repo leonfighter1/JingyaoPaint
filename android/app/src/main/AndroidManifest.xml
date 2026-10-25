@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
     <application
-        android:label="JingyaoPaint"
+        android:label="@string/app_name"
         android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
@@ -28,7 +28,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- "Open with JingyaoPaint" for painting files (.jypaint) sent by
+            <!-- "Open with JoyPainting" for painting files (.jypaint) sent by
                  this app. MainActivity.kt reads the file and the app imports
                  it; files that turn out not to be paintings are rejected. -->
             <intent-filter>

@@ -8,6 +8,7 @@ import '../painting_session.dart';
 import '../share/import_actions.dart';
 import '../share/share_actions.dart';
 import '../widgets/drop_menu.dart';
+import '../widgets/name_dialog.dart';
 import '../theme/cute_theme.dart';
 import 'painting_store.dart';
 
@@ -40,23 +41,42 @@ class _GalleryPageState extends State<GalleryPage> {
 
   PaintingStore get _store => widget.session.store;
 
+  /// The store being listened to; it changes when another kid is chosen.
+  late PaintingStore _listening;
+
   @override
   void initState() {
     super.initState();
-    _store.addListener(_reload);
+    _listening = _store..addListener(_reload);
     widget.session.addListener(_onSessionChanged);
     _reload();
   }
 
   @override
   void dispose() {
-    _store.removeListener(_reload);
+    _listening.removeListener(_reload);
     widget.session.removeListener(_onSessionChanged);
     super.dispose();
   }
 
-  /// Moves the "Editing" badge when a different painting is opened.
-  void _onSessionChanged() => setState(() {});
+  /// Moves the "Editing" badge when a different painting is opened, and
+  /// shows the other kid's paintings after a switch.
+  void _onSessionChanged() {
+    if (!identical(_listening, _store)) {
+      _listening.removeListener(_reload);
+      _listening = _store..addListener(_reload);
+      _year = null;
+      _reload();
+    }
+    setState(() {});
+  }
+
+  Future<void> _rename(PaintingMeta meta) async {
+    final s = S.of(context);
+    final name = await showNameDialog(context,
+        title: s.renameTitle, initial: meta.name);
+    if (name != null) await widget.session.rename(meta.id, name);
+  }
 
   Future<void> _reload() async {
     final list = await _store.list();
@@ -215,6 +235,7 @@ class _GalleryPageState extends State<GalleryPage> {
                             isCurrent: shown[i].id == widget.session.id,
                             onOpen: () => _open(shown[i]),
                             onDelete: () => _confirmDelete(shown[i]),
+                            onRename: () => _rename(shown[i]),
                             onSend: () => _withDoc(shown[i], showSendSheet),
                             onPrint: () => _withDoc(shown[i], printPainting),
                           ),
@@ -268,6 +289,7 @@ class _PaintingCard extends StatefulWidget {
     required this.isCurrent,
     required this.onOpen,
     required this.onDelete,
+    required this.onRename,
     required this.onSend,
     required this.onPrint,
   });
@@ -277,6 +299,7 @@ class _PaintingCard extends StatefulWidget {
   final bool isCurrent;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
+  final VoidCallback onRename;
   final VoidCallback onSend;
   final VoidCallback onPrint;
 
@@ -367,12 +390,14 @@ class _PaintingCardState extends State<_PaintingCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          formatDateTime(meta.createdAt).split(' ').first,
+                          meta.name,
                           style: theme.textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          s.updated(formatDateTime(meta.updatedAt)),
+                          formatDateTime(meta.createdAt).split(' ').first,
                           style: theme.textTheme.bodySmall,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -388,6 +413,14 @@ class _PaintingCardState extends State<_PaintingCard> {
                         child: ListTile(
                           leading: const Icon(Icons.brush_rounded),
                           title: Text(s.continuePainting),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: widget.onRename,
+                        child: ListTile(
+                          leading: const Icon(
+                              Icons.drive_file_rename_outline_rounded),
+                          title: Text(s.rename),
                         ),
                       ),
                       PopupMenuItem(

@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:jingyao_paint/drawing/stroke.dart';
+import 'package:jingyao_paint/family.dart';
 import 'package:jingyao_paint/gallery/painting_store.dart';
 import 'package:jingyao_paint/music/background_music.dart';
 import 'package:jingyao_paint/music/music_library.dart';
@@ -33,22 +34,37 @@ class TestApp {
   late final player =
       BackgroundMusic(settings: settings, library: music, engine: engine);
 
+  /// The storage all kids' paintings share.
+  late StoreBackend base;
+  late final family = Family(
+      settings: settings, backend: base, session: session, music: music);
+
   PaintingStore get store => session.store;
 }
+
+/// Most tests run in Chinese with the first-start setup already done, as
+/// the app was used before v2.1. [prefs] can change either.
+const testDefaults = <String, Object>{
+  'flutter.language': 'zh',
+  'flutter.onboarded': true,
+};
 
 Future<TestApp> createTestApp({
   Map<String, Object> prefs = const {},
   StoreBackend? backend,
+  bool fresh = false,
 }) async {
-  SharedPreferences.setMockInitialValues(prefs);
+  SharedPreferences.setMockInitialValues(
+      fresh ? prefs : {...testDefaults, ...prefs});
   final settings = await AppSettings.load();
   final memory = MemoryStoreBackend();
+  final base = backend ?? memory;
   final session = PaintingSession(
-    store: PaintingStore(backend ?? memory),
+    store: Family.storeFor(base, settings.currentKid),
     settings: settings,
     thumbnailer: fakeThumbnailer,
   );
-  return TestApp(settings, memory, session);
+  return TestApp(settings, memory, session)..base = base;
 }
 
 Stroke sampleStroke({BrushType brush = BrushType.pen, Color? color}) => Stroke(
@@ -89,18 +105,34 @@ class FakeMusicEngine implements MusicEngine {
   final List<String> calls = [];
   MusicSource? source;
   double volume = 0;
+  bool loop = true;
+  VoidCallback? _onComplete;
+
+  @override
+  set onComplete(VoidCallback? callback) => _onComplete = callback;
+
+  /// The track playing reached its end.
+  void finishTrack() => _onComplete?.call();
+
+  @override
+  Future<void> setLoop(bool loop) async {
+    this.loop = loop;
+    calls.add('loop:$loop');
+  }
 
   /// Makes the next [play] fail, like an unplayable file.
   bool failNext = false;
 
   @override
-  Future<void> play(MusicSource source, double volume) async {
+  Future<void> play(MusicSource source, double volume,
+      {bool loop = true}) async {
     if (failNext) {
       failNext = false;
       throw Exception('cannot play');
     }
     this.source = source;
     this.volume = volume;
+    this.loop = loop;
     calls.add('play');
   }
 

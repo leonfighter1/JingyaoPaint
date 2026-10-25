@@ -38,11 +38,16 @@ Size paintingSize(PaintingDoc doc) => doc.meta.width > 0 && doc.meta.height > 0
     ? Size(doc.meta.width, doc.meta.height)
     : const Size(800, 1000);
 
-/// A file name like `JingyaoPaint_20261024_1530.png`.
+/// The painting's name as the file name (`My painting 1.png`), or one
+/// like `JoyPainting_20261024_1530.png` for a painting without a name.
+/// Characters that file systems refuse become `_`.
 String exportName(PaintingDoc doc, ExportFormat format) {
+  final name =
+      doc.meta.name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
+  if (name.isNotEmpty) return '$name.${format.extension}';
   final d = doc.meta.updatedAt;
   String two(int n) => n.toString().padLeft(2, '0');
-  return 'JingyaoPaint_${d.year}${two(d.month)}${two(d.day)}_'
+  return 'JoyPainting_${d.year}${two(d.month)}${two(d.day)}_'
       '${two(d.hour)}${two(d.minute)}.${format.extension}';
 }
 
@@ -86,7 +91,7 @@ Future<Uint8List> buildPdf(
     Uint8List png, Size imageSize, PdfPageFormat format) async {
   final pageFormat =
       imageSize.width > imageSize.height ? format.landscape : format.portrait;
-  final doc = pw.Document(title: 'JingyaoPaint', creator: 'JingyaoPaint');
+  final doc = pw.Document(title: 'JoyPainting', creator: 'JoyPainting');
   doc.addPage(pw.Page(
     pageFormat: pageFormat,
     margin: const pw.EdgeInsets.all(24),
