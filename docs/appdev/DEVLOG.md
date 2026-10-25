@@ -5,7 +5,7 @@
 - Done: IndexedDB storage (with persistence request and localStorage migration), music that waits for the first touch in browsers, home-screen meta and opaque apple-touch icon, no portrait lock, loading screen, `.github/workflows/web.yml` (browser storage tests in Chrome, build with self-hosted CanvasKit, deploy to Pages), README web section. `--base-href /JingyaoPaint/` build checked locally.
 - Mistakes: none reached the user. The new music test caught retries slipping past the "wait for a touch" state; fixed. Chrome and Edge can't start headless from this PC's tool shell, so the browser test runs in CI only.
 - Harness: PASS (analyze 0 issues, 192 tests; web release build ok).
-- Needs the user once: Settings → Pages → Source: GitHub Actions.
+- The user enabled Pages. First deploy (run 40235752058): green, including the IndexedDB tests in Chrome; site returns 200 with base href /JingyaoPaint/, app code, CanvasKit, icon, manifest and music; a headless Chrome screenshot at 1180×820 shows the canvas page drawn in the cute font. Moved upload-pages-artifact and deploy-pages to v5 (Node 24).
 - Not tested: Safari on a real iPhone/iPad (home-screen launch, Pencil, storage persistence), whether github.io and the fallback fonts load well where the family is.
 
 ## 2026-10-25: iOS version (same repo, built on GitHub Actions)
