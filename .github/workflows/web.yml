@@ -1,0 +1,64 @@
+# Publishes the web version to GitHub Pages on every push to main:
+#   https://leonfighter1.github.io/JingyaoPaint/
+# On iPhone or iPad: open it in Safari, then Share → Add to Home Screen.
+#
+# One-time setup in the repository: Settings → Pages → Build and deployment
+# → Source: GitHub Actions.
+#
+# For a custom domain later: build with `--base-href /` instead, and set the
+# domain under Settings → Pages.
+name: Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits rather than cancelling a
+# deployment halfway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.8
+          cache: true
+
+      - run: flutter pub get
+
+      # Saving paintings in the browser (IndexedDB) only runs in a browser.
+      - name: Browser storage tests (Chrome)
+        run: flutter test --platform chrome test/web_store_test.dart
+
+      # The rendering engine (CanvasKit) is served from this site too, not
+      # from Google's CDN, so the app loads wherever GitHub Pages does.
+      - name: Build
+        run: flutter build web --release --base-href /JingyaoPaint/ --no-web-resources-cdn
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

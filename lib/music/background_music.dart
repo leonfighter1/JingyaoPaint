@@ -68,17 +68,25 @@ class BackgroundMusic with WidgetsBindingObserver {
     required this.settings,
     required this.library,
     required this.engine,
+    this.needsTouchToPlay = kIsWeb,
   });
 
   final AppSettings settings;
   final MusicLibrary library;
   final MusicEngine engine;
 
+  /// Browsers only play sound once the user has touched or clicked the
+  /// page. Until then a failed start just waits for [userTouched] instead of
+  /// reporting an error.
+  final bool needsTouchToPlay;
+
   /// Called when a track can't be played (say, an unsupported file); the
   /// music then switches back to the first built-in track.
   void Function(Object error)? onError;
 
   bool _foreground = true;
+  bool _touched = false;
+  bool _waitingForTouch = false;
   bool _playing = false;
   String? _loaded;
   double? _volume;
@@ -96,6 +104,16 @@ class BackgroundMusic with WidgetsBindingObserver {
     settings.removeListener(_sync);
     library.removeListener(_sync);
     engine.dispose();
+  }
+
+  /// The user touched or clicked the app (see [needsTouchToPlay]): music that
+  /// was waiting for it starts now.
+  void userTouched() {
+    _touched = true;
+    if (_waitingForTouch) {
+      _waitingForTouch = false;
+      _sync();
+    }
   }
 
   /// Paused or hidden means the user left the app (or turned the screen
@@ -126,6 +144,8 @@ class BackgroundMusic with WidgetsBindingObserver {
       }
       return;
     }
+    // Blocked by the browser: only a touch can start it (userTouched).
+    if (_waitingForTouch) return;
     final track = library.trackById(settings.musicTrack);
     final volume = settings.musicVolume;
     try {
@@ -147,6 +167,10 @@ class BackgroundMusic with WidgetsBindingObserver {
     } catch (e) {
       _loaded = null;
       _playing = false;
+      if (needsTouchToPlay && !_touched) {
+        _waitingForTouch = true;
+        return;
+      }
       onError?.call(e);
       if (!track.builtIn) {
         // Falls back to a track that always works (and plays it).

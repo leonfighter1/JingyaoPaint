@@ -103,6 +103,13 @@ class PaintApp extends StatelessWidget {
           for (final code in AppSettings.supportedLanguages) Locale(code),
         ],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        // Browsers only allow sound after a touch or click; the first one
+        // starts music that was switched on.
+        builder: (context, child) => Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) => player?.userTouched(),
+          child: child,
+        ),
         home: HomeShell(
           settings: settings,
           session: session,

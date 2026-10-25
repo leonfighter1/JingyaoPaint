@@ -1,46 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hans">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  <!-- Replaced by `flutter build web --base-href`: "/JingyaoPaint/" on
+       GitHub Pages (see .github/workflows/web.yml). -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="JingyaoPaint — drawing and painting">
+  <meta name="description" content="靖瑶的画板：给小朋友的画画 App · JingyaoPaint, a drawing app for kids">
+  <!-- Full screen, including around the notch; the app does its own
+       pinch zoom, so the page itself never zooms. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FFF0F5">
 
-  <!-- iOS meta tags & icons -->
+  <!-- "Add to Home Screen" on iPhone and iPad: opens full screen like an
+       app, with an opaque icon (iOS turns transparent corners black). -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="JingyaoPaint">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>JingyaoPaint</title>
+  <title>JingyaoPaint · 靖瑶的画板</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #FFF0F5; }
+    /* Shown while the app downloads; removed when it draws its first frame. */
+    #loading {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #6B2D5C; font-size: 18px;
+    }
+    #loading img { width: 96px; height: 96px; border-radius: 22px;
+      animation: bob 1.2s ease-in-out infinite alternate; }
+    @keyframes bob { to { transform: translateY(-10px); } }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <div id="loading">
+    <img src="icons/Icon-192.png" alt="">
+    <div>靖瑶的画板 加载中…</div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('loading');
+      if (el) el.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

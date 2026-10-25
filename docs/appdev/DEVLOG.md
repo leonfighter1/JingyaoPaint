@@ -1,5 +1,13 @@
 # Dev log: JingyaoPaint (靖瑶的画板)
 
+## 2026-10-25: Web version on GitHub Pages
+- Why: without a paid Apple account, an iOS build only installs for 7 days at a time; the web version added to the home screen has no signing or expiry. The user chose GitHub's free address over a custom domain or another host for now.
+- Done: IndexedDB storage (with persistence request and localStorage migration), music that waits for the first touch in browsers, home-screen meta and opaque apple-touch icon, no portrait lock, loading screen, `.github/workflows/web.yml` (browser storage tests in Chrome, build with self-hosted CanvasKit, deploy to Pages), README web section. `--base-href /JingyaoPaint/` build checked locally.
+- Mistakes: none reached the user. The new music test caught retries slipping past the "wait for a touch" state; fixed. Chrome and Edge can't start headless from this PC's tool shell, so the browser test runs in CI only.
+- Harness: PASS (analyze 0 issues, 192 tests; web release build ok).
+- Needs the user once: Settings → Pages → Source: GitHub Actions.
+- Not tested: Safari on a real iPhone/iPad (home-screen launch, Pencil, storage persistence), whether github.io and the fallback fonts load well where the family is.
+
 ## 2026-10-25: iOS version (same repo, built on GitHub Actions)
 - Decision (with the user): keep iOS in this repo, since Flutter shares all of `lib/`; build on GitHub-hosted Macs, which are free for this public repo. Signing and TestFlight wait for an Apple Developer account.
 - Done: `flutter create --platforms ios` (Flutter 3.47.8 template: SceneDelegate, implicit engine, Swift Package Manager); bundle ID set to match Android; Info.plist (name, zh-Hans/en, Photos texts, `.jypaint` document and exported type, no in-place opening, no-encryption flag); `OpenFilePlugin` in AppDelegate.swift written against the engine headers at revision 737ba8f885 (scene lifecycle delegate; Flutter replays launch options to it); single 1024px opaque icon from `make_icons.ps1`; ambient audio session on iOS; Apple-only music formats; iPad share anchor; `.github/workflows/ios.yml` and `tool/ios_sim_smoke.sh`; README iOS section.

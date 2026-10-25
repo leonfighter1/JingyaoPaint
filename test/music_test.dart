@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jingyao_paint/music/background_music.dart';
 import 'package:jingyao_paint/music/music_library.dart';
 
 import 'test_helpers.dart';
@@ -48,6 +49,31 @@ void main() {
   });
 
   group('Background music player', () {
+    testWidgets('in a browser, music blocked before the first touch waits for it',
+        (tester) async {
+      final app = await createTestApp();
+      final player = BackgroundMusic(
+        settings: app.settings,
+        library: app.music,
+        engine: app.engine,
+        needsTouchToPlay: true,
+      );
+      Object? reported;
+      player.onError = (e) => reported = e;
+      player.start();
+      addTearDown(player.dispose);
+      app.engine.failNext = true; // the browser refuses: no touch yet
+      app.settings.musicOn = true;
+      await player.settled;
+      expect(reported, isNull, reason: 'not an error, just too early');
+      expect(app.settings.musicTrack, 'builtin:sunny');
+      expect(app.engine.calls, isEmpty);
+
+      player.userTouched();
+      await player.settled;
+      expect(app.engine.calls, ['play']);
+    });
+
     testWidgets('is quiet until switched on, then loops the chosen track',
         (tester) async {
       final app = await createTestApp();

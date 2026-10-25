@@ -125,6 +125,8 @@ Save-Icon 'full' 512 'web/icons/Icon-512.png'
 Save-Icon 'maskable' 192 'web/icons/Icon-maskable-192.png'
 Save-Icon 'maskable' 512 'web/icons/Icon-maskable-512.png'
 Save-Icon 'full' 32 'web/favicon.png'
+# "Add to Home Screen" on iPhone/iPad: square and opaque, iOS rounds it.
+Save-Icon 'maskable' 180 'web/icons/apple-touch-icon.png' -Opaque
 Save-Icon 'full' 256 'assets/icon/logo.png'
 
 # iOS: one square, opaque 1024 px icon; Xcode makes the smaller sizes and iOS

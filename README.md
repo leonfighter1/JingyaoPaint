@@ -1,6 +1,8 @@
 # JingyaoPaint (靖瑶的画板)
 
-JingyaoPaint is a cute drawing app for Android and iOS phones and tablets, built with Flutter. Both apps come from the same code in this repository.
+JingyaoPaint is a cute drawing app for Android and iOS phones and tablets, built with Flutter, with a web version too. All of them come from the same code in this repository.
+
+**Try it in a browser:** https://leonfighter1.github.io/JingyaoPaint/ (on iPhone or iPad: open it in Safari, then Share → Add to Home Screen).
 The UI is in Simplified Chinese by default, with English available in Settings.
 
 What it does:
@@ -100,7 +102,7 @@ Gradle 9.3.1 is downloaded automatically by the wrapper. The Android build targe
 
 | Environment | How to get it | Use it for |
 |---|---|---|
-| Chrome | Installed with Chrome | Quick UI work and hot reload. "Save to album" downloads a file instead, and Android-only features (open with, album) don't apply. |
+| Chrome | Installed with Chrome | Quick UI work and hot reload. "Save to album" downloads a file instead, and phone-only features ("open with", the photo album) don't apply. |
 | Phone emulator | AVD `medium_phone` (1080×2400) | Default phone layout |
 | Tablet emulator | AVD `medium_tablet` (2560×1600) | Side rail, landscape/portrait, paper scaling |
 | Real Android device | USB debugging on, then `adb devices` | Stylus pressure, real pinch, sharing to chat apps, printing |
@@ -158,6 +160,7 @@ What the tests cover:
 - **`test/music_test.dart`**: the music library, the looping player (on/off, volume, background pause, fallback) and the music settings.
 - **`test/print_test.dart`**: the print preview's close buttons, Back, printing and page orientation.
 - **`test/ios_test.dart`**: the app running as iOS (scrolling, transitions and text editing differ per platform), Apple's music formats and the iPad share-sheet anchor.
+- **`test/web_store_test.dart`**: saving paintings in the browser (IndexedDB), moving old localStorage data over. Browser only: `flutter test --platform chrome test/web_store_test.dart` (the Web workflow runs it).
 - **`test/model_test.dart`**: the painting store, autosave and import.
 - **`test/export_test.dart`**: real PNG, JPEG and PDF output, and `.jypaint` round trips.
 - **`test/theme_test.dart`**: theme JSON and WCAG contrast.
@@ -195,6 +198,17 @@ To release a new version:
 1. Bump `version:` in `pubspec.yaml` (the build number after `+` too: Android needs it to go up).
 2. Bump `appVersion` in `lib/settings_page.dart`.
 3. Add a row to the Versions table above and a section to `docs/appdev/FEATURES.md`.
+
+## Web version
+
+Published to GitHub Pages by `.github/workflows/web.yml` on every push to `main`: https://leonfighter1.github.io/JingyaoPaint/
+
+- **iPhone/iPad**: open the link in Safari, tap Share → **Add to Home Screen**. It then opens full screen from its own icon, with no signing and no expiry.
+- **Paintings** are saved in the browser (IndexedDB, hundreds of MB) on that device only. Deleting Safari's website data deletes them. Send a painting as a `.jypaint` file to keep a copy.
+- **Differences from the apps**: "Save to album" downloads the picture; background music starts at the first tap (browsers block sound before that), and added music lasts until the page reloads.
+- The rendering engine is served from the site itself, not Google's CDN.
+- **One-time setup** (already needed once per repository): Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+- **Custom domain later**: build with `--base-href /` and set the domain under Settings → Pages.
 
 ## iOS
 
@@ -236,7 +250,7 @@ lib/
 assets/                logo, theme JSON files, fonts and their OFL licenses, built-in music
 android/               Android host app (MainActivity handles "open with")
 ios/                   iOS host app (AppDelegate handles "Open in", Info.plist)
-.github/workflows/     ios.yml: builds and starts the iOS app on GitHub's Macs
+.github/workflows/     ios.yml (iOS build on GitHub's Macs), web.yml (publishes the web version)
 tool/                  build_apk.ps1, watch_build.ps1, make_icons.ps1, make_music.dart, ios_sim_smoke.sh
 docs/appdev/           FEATURES.md, MISTAKES.md, DEVLOG.md
 test/                  see Tests above

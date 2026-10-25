@@ -3,10 +3,10 @@
     "short_name": "JingyaoPaint",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#7F5AF0",
-    "theme_color": "#7F5AF0",
-    "description": "JingyaoPaint — drawing and painting",
-    "orientation": "portrait-primary",
+    "background_color": "#FFF0F5",
+    "theme_color": "#FFF0F5",
+    "description": "靖瑶的画板：给小朋友的画画 App · JingyaoPaint, a drawing app for kids",
+    "lang": "zh-Hans",
     "prefer_related_applications": false,
     "icons": [
         {
